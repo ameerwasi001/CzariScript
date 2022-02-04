@@ -35,6 +35,13 @@ class Reachability {
             }
         }
     }
+
+    clone(): Reachability {
+        const reachability = new Reachability()
+        reachability.downsets = [...this.downsets].map(a => a.clone())
+        reachability.upsets = [...this.upsets].map(a => a.clone())
+        return reachability
+    }
 }
 
 const test = () => {

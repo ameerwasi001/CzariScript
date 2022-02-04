@@ -21,6 +21,14 @@ class OrderedSet<T> {
     *iter() {
         for(const val of this.v) yield val
     }
+
+    clone(): OrderedSet<T> {
+        const newOrderedSet: OrderedSet<T> = new OrderedSet()
+        for(const val of this.iter()) {
+            newOrderedSet.insert(val)
+        }
+        return newOrderedSet
+    }
 }
 
 const clear_arr = <T>(arr: Array<T>) => {
@@ -37,10 +45,16 @@ const assert_array_eq = <T>(a: T, b: T) => {
     }
 }
 
+const assert_eq = <T>(a: T, b: T) => {
+    if (a != b) {
+        throw `${a} is asserted equal to be ${b} but that is false`
+    }
+}
+
 const assert_lte = (a: number, b: number) => {
     if (a <= b) {
         throw `${a} is asserted less than or equal to ${b} but that is false`
     }
 }
 
-export {OrderedSet, assert_array_eq, assert_lte, clear_arr}
+export {OrderedSet, assert_array_eq, assert_lte, assert_eq, clear_arr}

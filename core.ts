@@ -1,4 +1,6 @@
 import { Span, SpannedError } from "./spans.ts"
+import { assert_eq } from "./utils.ts"
+import { Reachability } from "./reachability.ts"
 
 type ID = number;
 
@@ -6,6 +8,7 @@ type Value = {type: "Value", val: ID}
 type Use = {type: "Use", val: ID}
 
 type LazyFlow = [Value, Use]
+type SavePoint = [number, Reachability]
 
 type VTypeHead = 
     {type: "VBool"}
@@ -161,3 +164,166 @@ const checkHeads = (
         )
     }
 }
+
+type TypeNode = 
+    {type: "Var"}
+    | {type: "Value", val: [VTypeHead, Span]}
+    | {type: "Use", val: [UTypeHead, Span]}
+
+class TypeCheckerCore {
+    r: Reachability
+    types: TypeNode[]
+
+    constructor() {
+        this.r = new Reachability()
+        this.types = []
+    }
+
+    flow(lhs: Value, rhs: Use): [] {
+        let pendingEdges: [Value, Use][] = [[lhs, rhs]]
+        let typePairstoCheck: [ID, ID][] = []
+
+        while (pendingEdges.length > 0) {
+            const unit = pendingEdges.pop()
+            if (unit == undefined) throw "flow: unit should not be undeifned"
+            const [lhs, rhs] = unit
+            this.r.addEdge(lhs.val, rhs.val, typePairstoCheck)
+            while (typePairstoCheck.length > 0) {
+                const unit = typePairstoCheck.pop()
+                if (unit == undefined) throw "flow: unit should not be undeifned"
+                const [lhs, rhs] = unit
+                const v1 = this.types[lhs]
+                const v2 = this.types[rhs]
+                if (v1 == undefined) continue
+                if (v2 == undefined) continue
+                if (v1.type == "Value") {
+                    if (v2.type == "Use") {
+                        const [lhsHead, rhsHead] = [v1.val, v2.val]
+                        checkHeads(lhs, lhsHead, rhs, rhsHead, pendingEdges)
+                    }
+                }
+            }
+        }
+        return []
+    }
+
+    newVal(valType: VTypeHead, span: Span) {
+        const i = this.r.addNode()
+        assert_eq(i, this.types.length)
+        this.types.push({type: "Value", val: [valType, span]})
+        return value(i)
+    }
+
+    newUse(constraint: UTypeHead, span: Span) {
+        const i = this.r.addNode()
+        assert_eq(i, this.types.length)
+        this.types.push({type: "Use", val: [constraint, span]})
+        return use(i)
+    }
+
+    newVar() {
+        const i = this.r.addNode()
+        assert_eq(i, this.types.length)
+        this.types.push({type: "Var"})
+        return [value(i), use(i)]
+    }
+
+    bool(span: Span) {
+        return this.newVal({type: "VBool"}, span)
+    }
+
+    float(span: Span) {
+        return this.newVal({type: "VFloat"}, span)
+    }
+
+    int(span: Span) {
+        return this.newVal({type: "VInt"}, span)
+    }
+
+    null(span: Span) {
+        return this.newVal({type: "VNull"}, span)
+    }
+
+    str(span: Span) {
+        return this.newVal({type: "VStr"}, span)
+    }
+
+    boolUse(span: Span) {
+        return this.newUse({type: "UBool"}, span)
+    }
+
+    floatUse(span: Span) {
+        return this.newUse({type: "UFloat"}, span)
+    }
+
+    intUse(span: Span) {
+        return this.newUse({type: "UInt"}, span)
+    }
+
+    nullUse(span: Span) {
+        return this.newUse({type: "UNull"}, span)
+    }
+
+    strUse(span: Span) {
+        return this.newUse({type: "UStr"}, span)
+    }
+
+    func(arg: Use, ret: Value, span: Span) {
+        return this.newVal({type: "VFunc", arg, ret}, span)
+    }
+
+    funcUse(arg: Value, ret: Use, span: Span) {
+        return this.newUse({type: "UFunc", arg, ret}, span)
+    }
+
+    obj(fields: [string, Value][], proto: Value | null, span: Span) {
+        const fieldsMap: Record<string, Value> = {}
+        for(const [key, val] of fields) {
+            fieldsMap[key] = val
+        }
+        return this.newVal({type: "VObj", proto, fields: fieldsMap}, span)
+    }
+
+    objUse(field: [string, Use], span: Span) {
+        return this.newUse({type: "UObj", field: field}, span)
+    }
+
+    case(c: [string, Value], span: Span) {
+        return this.newVal({type: "VCase", case: c}, span)
+    }
+
+    caseUse(c: [string, [Use, LazyFlow]][], wildcard: [Use, LazyFlow] | null, span: Span) {
+        const cases: Record<string, [Use, LazyFlow]> = {}
+        for(const [key, val] of c) {
+            cases[key] = val
+        }
+        return this.newUse({type: "UCase", cases, wildcard}, span)
+    }
+
+    reference(write: Use | null, read: Value | null, span: Span) {
+        return this.newVal({type: "VRef", write, read}, span)
+    }
+
+    referenceUse(write: Value | null, read: Use | null, span: Span) {
+        return this.newUse({type: "URef", write, read}, span)
+    }
+
+    nullCheckUse(nonnull: Use, span: Span) {
+        return this.newUse({type: "UNullCase", nonnull: nonnull}, span)
+    }
+
+    save(): SavePoint {
+        return [this.types.length, this.r.clone()]
+    }
+
+    restore(save: SavePoint) {
+        this.types.splice(save[0])
+        const save1 = save[1]
+        const r = this.r
+        save[1] = r
+        this.r = save1
+    }
+}
+
+export type { VTypeHead, UTypeHead, TypeNode }
+export { TypeCheckerCore }
