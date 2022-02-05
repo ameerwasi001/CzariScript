@@ -143,5 +143,5 @@ class SpannedError {
     }
 }
 
-export type { Span }
+export type { Span, Spanned }
 export { SpannedError }
