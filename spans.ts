@@ -1,10 +1,28 @@
 import { assert_lte, clear_arr } from "./utils.ts"
-
-const splitAt = (x: string, index: number): [string, string] => [x.slice(0, index), x.slice(index)]
+  
+const splitAt = (str: string, n: number): [string, string] => {
+    const arr = str.split("")
+    var selected: string[] = [];
+    var others: string[] = [];
+    for (let i = 0; i < arr.length; i++) {
+        (i <= n ? selected : others).push(arr[i])
+    }
+    return [selected.join(""), others.join("")]
+}
 
 const rsplit = (self: string, sep: string, maxsplit=1) => {
     const split = self.split(sep);
-    return maxsplit ? [ split.slice(0, -maxsplit).join(sep) ].concat(split.slice(-maxsplit)) : split;
+    const ans = maxsplit ? [ split.slice(0, -maxsplit).join(sep) ].concat(split.slice(-maxsplit)) : split;
+    while(ans[0] == "") ans.shift()
+    while(ans[ans.length-1] == "") ans.pop()
+    return ans
+}
+
+const trim = (self: string[]) => {
+    const ans = [...self]
+    while(ans[0] == "") ans.shift()
+    while(ans[ans.length-1] == "") ans.pop()
+    return ans
 }
 
 type Span = {type: "span", size: number}
@@ -45,29 +63,34 @@ class SpanManager {
         let [before, newSource] = splitAt(source, 1)
         source = newSource
 
-        const tok = splitAt(source, r-1)[0].split("\n")[0]
-        const after = splitAt(source, tok.length - 1)[1]
+        const tok = trim(splitAt(source, r-1)[0].split("\n"))[0]
+        const after = splitAt(source, tok.length-1)[1]
 
         let bIter = rsplit(before, "\n")
         let lineBefore = bIter[0]
-        let aIter = after.split("\n")
-        let lineAfter = after[0]
+        let aIter = trim(after.split("\n"))
+        let lineAfter = aIter[0]
+        lineAfter = lineAfter == undefined ? "" : lineAfter
+        lineBefore = lineBefore == undefined ? "" : lineBefore
         let n = 0
 
-        if (bIter.length <= 1) {
-            if (bIter.length <= 2) {
+        if (bIter.length > 1) {
+            let b = false
+            if (bIter.length > 2) {
                 out += bIter[2]
                 out += "\n"
                 n = 2
+                b = true
             }
             out += bIter[1]
             out += "\n"
-            n = 1
+            n = b ? n : 1
         }
 
         out += lineBefore
         out += tok
         out += lineAfter
+        out += "\n"
 
         out += " ".repeat(lineBefore.length)
         out += "^"
@@ -101,8 +124,11 @@ class SpanMaker {
     span(l: number, r: number) {
         const sourceIndex = this.sourceIndex
         const parent = this.parent
-        if (this.pool.has(`[${l}, ${r}]`)) return this.pool.get(`[${l}, ${r}]`)
-        else {
+        if (this.pool.has(`[${l}, ${r}]`)) {
+            const val = this.pool.get(`[${l}, ${r}]`)
+            if (val == undefined) throw "val should not be undefined in span from SpanMaker class"
+            return val
+        } else {
             const span = parent.newSpan(sourceIndex, l, r)
             this.pool.set(`[${l}, ${r}]`, span)
             return span
@@ -144,4 +170,4 @@ class SpannedError {
 }
 
 export type { Span, Spanned }
-export { SpannedError }
+export { SpanManager, SpanMaker, SpannedError }

@@ -7,7 +7,6 @@ type Literal =
     | "Null"
     | "Str"
 
-
 type Op =
     "Add"
     | "Sub"
@@ -33,7 +32,6 @@ type VarDefinition = [string, Expr]
 type LetPattern = 
     {type: "Var", val: string}
     | {type: "Record", val: [Spanned<string>, LetPattern][]}
-
 
 type MatchPattern = 
     {type: "Case", val: [string, string]}
@@ -65,3 +63,5 @@ type TopLevel =
     {type: "Expr", val: Expr}
     | {type: "LetDef", val: VarDefinition}
     | {type: "LetRecDef", val: VarDefinition[]}
+
+export type { Literal, Op, OpType, VarDefinition, LetPattern, MatchPattern, Expr, Readability, TopLevel }

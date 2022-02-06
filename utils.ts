@@ -52,7 +52,7 @@ const assert_eq = <T>(a: T, b: T) => {
 }
 
 const assert_lte = (a: number, b: number) => {
-    if (a <= b) {
+    if (!(a <= b)) {
         throw `${a} is asserted less than or equal to ${b} but that is false`
     }
 }

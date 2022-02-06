@@ -146,16 +146,15 @@ const checkHeads = (
         else if (lhs[0].type == "VRef") found = "ref"
 
         let expected = ""
-        if (rhs[0].type == "UBool") found = "boolean"
-        else if (rhs[0].type == "UFloat") found = "float"
-        else if (rhs[0].type == "UInt") found = "int"
-        else if (rhs[0].type == "UStr") found = "string"
-        else if (rhs[0].type == "UNull") found = "null"
-        else if (rhs[0].type == "UFunc") found = "function"
-        else if (rhs[0].type == "UObj") found = "record"
-        else if (rhs[0].type == "UCase") found = "case"
-        else if (rhs[0].type == "URef") found = "ref"
-
+        if (rhs[0].type == "UBool") expected = "boolean"
+        else if (rhs[0].type == "UFloat") expected = "float"
+        else if (rhs[0].type == "UInt") expected = "int"
+        else if (rhs[0].type == "UStr") expected = "string"
+        else if (rhs[0].type == "UNull") expected = "null"
+        else if (rhs[0].type == "UFunc") expected = "function"
+        else if (rhs[0].type == "UObj") expected = "record"
+        else if (rhs[0].type == "UCase") expected = "case"
+        else if (rhs[0].type == "URef") expected = "ref"
         throw SpannedError.new2(
             `TypeError: Value is required to be a ${expected} here,`,
             rhs[1],
@@ -268,6 +267,10 @@ class TypeCheckerCore {
         return this.newUse({type: "UStr"}, span)
     }
 
+    intOrFloatUse(span: Span) {
+        return this.newUse({type: "UIntOrFloat"}, span)
+    }
+
     func(arg: Use, ret: Value, span: Span) {
         return this.newVal({type: "VFunc", arg, ret}, span)
     }
@@ -325,5 +328,5 @@ class TypeCheckerCore {
     }
 }
 
-export type { VTypeHead, UTypeHead, TypeNode }
+export type { VTypeHead, UTypeHead, TypeNode, Value, Use }
 export { TypeCheckerCore }
