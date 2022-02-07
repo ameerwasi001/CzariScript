@@ -48,6 +48,28 @@ class Bindings {
     }
 }
 
+function processLetPattern(engine: TypeCheckerCore, bindings: Bindings, pat: LetPattern) {
+    const [argType, argBound] = engine.newVar()
+    if (pat.type == "Var") bindings.insert(pat.val, argType)
+    else {
+        const pairs = pat.val
+        let field_names: Record<string, Span> = {}
+        for(const [[name, nameSpan], subPattern] of pairs) {
+            if (field_names.hasOwnProperty(name)) throw SpannedError.new2(
+                "SyntaxError: Repeated field pattern name",
+                nameSpan,
+                "Note: Field was already bound here",
+                field_names[name]
+            )
+            field_names[name] = nameSpan
+            const fieldBound = processLetPattern(engine, bindings, subPattern)
+            const bound = engine.objUse([name, fieldBound], nameSpan)
+            engine.flow(argType, bound)
+        }
+    }
+    return argBound
+}
+
 function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Value {
     if (expr.type == "BinOp") {
 
@@ -90,25 +112,59 @@ function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Val
         else if (type_ == "Null") return engine.null(span)
         else if (type_ == "Str") return engine.str(span)
 
-    } 
+    } else if (expr.type == "FuncDef") {
+
+        const [[argPattern, bodyExpr], span] = expr.fields
+        const [argBound, bodyType] = bindings.inChildScope(bindings => {
+            const argBound2 = processLetPattern(engine, bindings, argPattern)
+            const bodyType2 = checkExpr(engine, bindings, bodyExpr)
+            return [argBound2, bodyType2]
+        })
+        return engine.func(argBound, bodyType, span)
+
+    } else if (expr.type == "Variable") {
+
+        const [name, span] = expr.field
+        const scheme = bindings.get(name)
+        if (scheme == null) throw SpannedError.new1(`SyntaxError: Undefined variable ${name}"`, span)
+        else {
+            if (scheme.type == "Mono") return scheme.val
+            else scheme.val(engine)
+        }
+
+    } else if (expr.type == "Call") {
+
+        const [funcExpr, argExpr, span] = expr.fields
+        const funcType = checkExpr(engine, bindings, funcExpr)
+        const argType = checkExpr(engine, bindings, argExpr)
+        const [retType, retBound] = engine.newVar()
+        const bound = engine.funcUse(argType, retBound, span)
+        engine.flow(funcType, bound)
+        return retType
+
+    }
     throw "Incomplete!"
 }
 
 const engine = new TypeCheckerCore()
 const bindings = new Bindings()
 const spanManager = new SpanManager()
-spanManager.addSource("2+true")
+spanManager.addSource("___")
 const spanMaker = new SpanMaker(spanManager, 0, new Map())
 const span1 = spanMaker.span(0, 1)
 const span2 = spanMaker.span(1, 2)
 const span3 = spanMaker.span(0, 2)
 
 const lit1: Expr = {type: "Literal", fields: ["Int", ["2", span1]]}
-const lit2: Expr = {type: "Literal", fields: ["Int", ["9", span2]]}
-const binOp: Expr = {type: "BinOp", fields: [[lit1, span1], [lit2, span2], "IntOp", "Add", span3]}
+const lit2: Expr = {type: "Literal", fields: ["Int", ["1", span2]]}
+const variable: Expr = {type: "Variable", field: ["x", span1]}
+const binOp: Expr = {type: "BinOp", fields: [[variable, span1], [lit2, span2], "IntOp", "Add", span3]}
+const arg1: LetPattern = {type: "Var", val: "x"}
+const fun1: Expr = {type: "FuncDef", fields: [[arg1, binOp], span1]}
+const app1: Expr = {type: "Call", fields: [fun1, lit1, span3]}
 
 try {
-    console.log(checkExpr(engine, bindings, binOp))
+    console.log(checkExpr(engine, bindings, app1))
 } catch(err) {
     console.log(err.print(spanManager))
 }

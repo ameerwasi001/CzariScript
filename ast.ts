@@ -52,7 +52,7 @@ type Expr =
     | {type: "Record", fields: [Expr | null, [Spanned<string>, Expr][], Span]}
     | {type: "RefGet", field: Spanned<Expr>}
     | {type: "RefSet", fields: [Spanned<Expr>, Expr]}
-    | {type: "Variable", field: Spanned<String>}
+    | {type: "Variable", field: Spanned<string>}
 
 type Readability =
     "ReadWrite"

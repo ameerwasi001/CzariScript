@@ -220,7 +220,7 @@ class TypeCheckerCore {
         return use(i)
     }
 
-    newVar() {
+    newVar(): [Value, Use] {
         const i = this.r.addNode()
         assert_eq(i, this.types.length)
         this.types.push({type: "Var"})
