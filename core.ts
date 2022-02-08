@@ -43,6 +43,10 @@ const value = (i: ID): Value => {
     return {type: "Value", val: i}
 }
 
+const cloneValue = (value: Value): Value => {
+    return {type: "Value", val: value.val}
+}
+
 const checkHeads = (
     lhsInd: ID, 
     lhs: [VTypeHead, Span], 
@@ -329,4 +333,4 @@ class TypeCheckerCore {
 }
 
 export type { VTypeHead, UTypeHead, TypeNode, Value, Use }
-export { TypeCheckerCore }
+export { cloneValue, TypeCheckerCore }

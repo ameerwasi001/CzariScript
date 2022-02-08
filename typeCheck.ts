@@ -1,10 +1,16 @@
 import { Span, SpanMaker, SpanManager, SpannedError } from "./spans.ts"
-import { Literal, Op, OpType, VarDefinition, LetPattern, MatchPattern, Expr, Readability, TopLevel } from "./ast.ts"
-import { VTypeHead, UTypeHead, TypeNode, Value, Use, TypeCheckerCore } from "./core.ts"
+import { Literal, Op, OpType, VarDefinition, LetPattern, MatchPattern, Expr, Readability, TopLevel, cloneExpr } from "./ast.ts"
+import { VTypeHead, UTypeHead, TypeNode, Value, Use, TypeCheckerCore, cloneValue } from "./core.ts"
 
 type Scheme =
     {type: "Mono", val: Value}
     | {type: "Poly", val: (_: TypeCheckerCore) => Value}
+
+const cloneScheme = (scheme: Scheme) : Scheme => {
+    if (scheme.type == "Mono") return {type: "Mono", val: cloneValue(scheme.val)}
+    // Maybe we clone the function, IDK...
+    else return {type: "Poly", val: scheme.val}
+}
 
 class Bindings {
     m: Record<string, Scheme>
@@ -70,6 +76,21 @@ function processLetPattern(engine: TypeCheckerCore, bindings: Bindings, pat: Let
     return argBound
 }
 
+function checkLet(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Scheme {
+    if (expr.type == "FuncDef") {
+        const savedBindings = new Bindings()
+        savedBindings.m = {}
+        for(const k in bindings.m) savedBindings.m[k] = cloneScheme(bindings.m[k])
+        savedBindings.changes = []
+        const savedExpr = cloneExpr(expr)
+        const f = (engine: TypeCheckerCore) => checkExpr(engine, savedBindings, savedExpr)
+        f(engine)
+        return {type: "Poly", val: f}
+    }
+    let varType = checkExpr(engine, bindings, expr)
+    return {type: "Mono", val: varType}
+}
+
 function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Value {
     if (expr.type == "BinOp") {
 
@@ -129,7 +150,7 @@ function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Val
         if (scheme == null) throw SpannedError.new1(`SyntaxError: Undefined variable ${name}"`, span)
         else {
             if (scheme.type == "Mono") return scheme.val
-            else scheme.val(engine)
+            else return scheme.val(engine)
         }
 
     } else if (expr.type == "Call") {
@@ -142,8 +163,50 @@ function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Val
         engine.flow(funcType, bound)
         return retType
 
+    } else if (expr.type == "Let") {
+
+        const [[name, varExpr], restExpr] = expr.fields
+        const varScheme = checkLet(engine, bindings, varExpr)
+        return bindings.inChildScope((bindings: Bindings) => {
+            bindings.insert_scheme(name, varScheme)
+            return checkExpr(engine, bindings, restExpr)
+        })
     }
     throw "Incomplete!"
+}
+
+const checkTopLevel = (engine: TypeCheckerCore, bindings: Bindings, ast: TopLevel) => {
+    if (ast.type == "Expr") checkExpr(engine, bindings, ast.val)
+    else if (ast.type == "LetDef") {
+        const [name, varExpr] = ast.val
+        const varScheme = checkLet(engine, bindings, varExpr)
+        bindings.insert_scheme(name, varScheme)
+    } else throw "Incomplete!"
+}
+
+class TypeckState {
+    core: TypeCheckerCore
+    bindings: Bindings
+
+    constructor() {
+        this.core = new TypeCheckerCore()
+        this.bindings = new Bindings()
+    }
+
+    checkScript(parsed: TopLevel[]) {
+        const temp = this.core.save()
+        for(const item of parsed) {
+            try {
+                checkTopLevel(this.core, this.bindings, item)
+            } catch(err) {
+                this.core.restore(temp)
+                this.bindings.unwind(0)
+                throw err
+            }
+        }
+        const changes = this.bindings.changes
+        while(changes.length > 0) changes.pop()
+    }
 }
 
 const engine = new TypeCheckerCore()
@@ -155,16 +218,36 @@ const span1 = spanMaker.span(0, 1)
 const span2 = spanMaker.span(1, 2)
 const span3 = spanMaker.span(0, 2)
 
-const lit1: Expr = {type: "Literal", fields: ["Int", ["2", span1]]}
-const lit2: Expr = {type: "Literal", fields: ["Int", ["1", span2]]}
+const num1: Expr = {type: "Literal", fields: ["Int", ["2", span1]]}
+const num2: Expr = {type: "Literal", fields: ["Int", ["1", span2]]}
+const str1: Expr = {type: "Literal", fields: ["Str", ["AbcXYz", span3]]}
+
 const variable: Expr = {type: "Variable", field: ["x", span1]}
-const binOp: Expr = {type: "BinOp", fields: [[variable, span1], [lit2, span2], "IntOp", "Add", span3]}
+const funRef: Expr = {type: "Variable", field: ["id", span1]}
+
+const binOp: Expr = {type: "BinOp", fields: [[variable, span1], [num2, span2], "IntOp", "Add", span3]}
 const arg1: LetPattern = {type: "Var", val: "x"}
+
+const idFun: Expr = {type: "FuncDef", fields: [[arg1, variable], span1]}
+const idDef: VarDefinition = ["id", idFun]
+
+const idApp1: Expr = {type: "Call", fields: [funRef, num2, span3]}
+const idApp2: Expr = {type: "Call", fields: [funRef, str1, span3]}
+const idBinOp: Expr = {type: "BinOp", fields: [[idApp1, span1], [idApp1, span2], "IntOp", "Add", span3]}
+
 const fun1: Expr = {type: "FuncDef", fields: [[arg1, binOp], span1]}
-const app1: Expr = {type: "Call", fields: [fun1, lit1, span3]}
+const app1: Expr = {type: "Call", fields: [fun1, num1, span3]}
+
+const typeState = new TypeckState()
 
 try {
-    console.log(checkExpr(engine, bindings, app1))
+    typeState.checkScript([
+        {type: "LetDef", val: idDef},
+        {type: "Expr", val: idApp1},
+        {type: "Expr", val: idApp2},
+        {type: "Expr", val: idBinOp},
+        {type: "Expr", val: app1},
+    ])
 } catch(err) {
     console.log(err.print(spanManager))
 }

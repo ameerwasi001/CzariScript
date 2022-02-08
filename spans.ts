@@ -169,5 +169,9 @@ class SpannedError {
     }
 }
 
+const cloneSpan = (span: Span): Span => {
+    return {type: "span", size: span.size}
+}
+
 export type { Span, Spanned }
-export { SpanManager, SpanMaker, SpannedError }
+export { SpanManager, SpanMaker, SpannedError, cloneSpan }
