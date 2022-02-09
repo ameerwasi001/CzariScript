@@ -153,12 +153,14 @@ const checkHeads = (
         if (rhs[0].type == "UBool") expected = "boolean"
         else if (rhs[0].type == "UFloat") expected = "float"
         else if (rhs[0].type == "UInt") expected = "int"
+        else if (rhs[0].type == "UIntOrFloat") expected = "integer or float"
         else if (rhs[0].type == "UStr") expected = "string"
         else if (rhs[0].type == "UNull") expected = "null"
         else if (rhs[0].type == "UFunc") expected = "function"
         else if (rhs[0].type == "UObj") expected = "record"
         else if (rhs[0].type == "UCase") expected = "case"
         else if (rhs[0].type == "URef") expected = "ref"
+
         throw SpannedError.new2(
             `TypeError: Value is required to be a ${expected} here,`,
             rhs[1],
