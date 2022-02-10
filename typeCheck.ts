@@ -214,7 +214,47 @@ function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Val
         engine.flow(thenType, mergedBound)
         engine.flow(elseType, mergedBound)
         return merged
+
+    } else if (expr.type == "Record") {
+
+        const [proto, fields, span] = expr.fields
+        const protoType = proto == null ? null : checkExpr(engine, bindings, proto)
+        const fieldNames: Record<string, Span> = {}
+        const fieldTypePairs: [string, Value][] = []
+        for (const [[name, nameSpan], expr] of fields) {
+            if (fieldNames.hasOwnProperty(name)) {
+                const oldSpan = fieldNames[name]
+                if(oldSpan == undefined) throw "oldSpan should not be undefined. In Record type check from checkExpr"
+                throw SpannedError.new2(
+                    "SyntaxError: Repeated field name",
+                    nameSpan,
+                    "Note: Field was already defined here",
+                    oldSpan
+                )
+            }
+            fieldNames[name] = nameSpan
+            const t = checkExpr(engine, bindings, expr)
+            fieldTypePairs.push([name, t])
+        }
+        return engine.obj(fieldTypePairs, protoType, span)
+
+    } else if (expr.type == "Case") {
+
+        const [[tag, span], valExpr] = expr.fields
+        const valType = checkExpr(engine, bindings, valExpr)
+        return engine.case([tag, valType], span)
+
+    } else if (expr.type == "FieldAccess") {
+
+        const [lhsExpr, name, span] = expr.fields
+        const lhsType = checkExpr(engine, bindings, lhsExpr)
+        const [fieldType, fieldBound] = engine.newVar()
+        const bound = engine.objUse([name, fieldBound], span)
+        engine.flow(lhsType, bound)
+        return fieldType
+
     }
+
     throw "Incomplete!"
 }
 
@@ -252,8 +292,6 @@ class TypeckState {
     }
 }
 
-const engine = new TypeCheckerCore()
-const bindings = new Bindings()
 const spanManager = new SpanManager()
 spanManager.addSource("___")
 const spanMaker = new SpanMaker(spanManager, 0, new Map())
@@ -265,6 +303,15 @@ const num1: Expr = {type: "Literal", fields: ["Int", ["2", span1]]}
 const num2: Expr = {type: "Literal", fields: ["Int", ["1", span2]]}
 const str1: Expr = {type: "Literal", fields: ["Str", ["AbcXYz", span3]]}
 const null1: Expr = {type: "Literal", fields: ["Null", ["", span2]]}
+const rec1: Expr = {type: "Record", fields: [
+    null, 
+    [
+        [ ["num", span2], num1 ],
+        [ ["name", span2], str1 ]
+    ],
+    span3
+]}
+const case1: Expr = {type: "Case", fields: [["Constructor", span2], rec1]}
 
 const variable: Expr = {type: "Variable", field: ["x", span1]}
 const funRef: Expr = {type: "Variable", field: ["id", span1]}
@@ -292,8 +339,13 @@ const ifDef: VarDefinition = ["ifFun", ifFun]
 const nullCheckFunDef: VarDefinition = ["nullCheckFun", nullCheckFun]
 const idDef: VarDefinition = ["id", idFun]
 
+const accessField: Expr = {type: "FieldAccess", fields: [variable, "name", span1]}
+const accessFieldFun: Expr = {type: "FuncDef", fields: [[arg1, accessField], span1]}
+const accessDef: VarDefinition = ["accessFunc", accessFieldFun]
+
 const ifApp: Expr = {type: "Call", fields: [ifFun, num1, span3]}
 const app1: Expr = {type: "Call", fields: [fun1, num1, span3]}
+const accessApp: Expr = {type: "Call", fields: [accessFieldFun, rec1, span3]}
 
 const typeState = new TypeckState()
 
@@ -302,11 +354,14 @@ try {
         {type: "LetDef", val: idDef},
         {type: "LetDef", val: ifDef},
         {type: "LetDef", val: nullCheckFunDef},
+        {type: "LetDef", val: accessDef},
         {type: "Expr", val: idApp1},
         {type: "Expr", val: idApp2},
         {type: "Expr", val: idBinOp},
         {type: "Expr", val: app1},
         {type: "Expr", val: ifApp},
+        {type: "Expr", val: case1},
+        {type: "Expr", val: accessApp},
     ])
 } catch(err) {
     console.log(err.print(spanManager))
