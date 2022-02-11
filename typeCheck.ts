@@ -253,6 +253,59 @@ function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Val
         engine.flow(lhsType, bound)
         return fieldType
 
+    } else if (expr.type == "Match") {
+
+        const [matchExpr, cases, span] = expr.fields
+        const matchType = checkExpr(engine, bindings, matchExpr)
+        const [resultType, resultBound] = engine.newVar()
+
+        const caseTypePairs: [string, [Use, [Value, Use]]][] = []
+        let wildcardType: [Use, [Value, Use]] | null = null
+ 
+        const caseNames: Record<string, Span> = {}
+        let wildcard: Span | null = null
+
+        for(const [[pattern, patternSpan], rhsExpr] of cases) {
+            if(wildcard != null) throw SpannedError.new2(
+                "SyntaxError: Unreachable match pattern",
+                patternSpan,
+                "Note: Unreachable due to previous wildcard pattern here",
+                wildcard
+            )
+
+            if (pattern.type == "Case") {
+                const [tag, name] = pattern.val
+                if (caseNames.hasOwnProperty(tag)) throw SpannedError.new2(
+                    "SyntaxError: Unreachable match pattern",
+                    patternSpan,
+                    "Note: Unreachable due to previous case pattern here",
+                    caseNames[tag]
+                )
+                caseNames[tag] = patternSpan
+
+                const [wrappedType, wrappedBound] = engine.newVar()
+                const rhsType = bindings.inChildScope(bindings => {
+                    bindings.insert(name, wrappedType)
+                    return checkExpr(engine, bindings, rhsExpr)
+                })
+
+                caseTypePairs.push( [tag, [wrappedBound, [rhsType, resultBound]]] )
+            } else {
+                const name = pattern.val
+                wildcard = patternSpan
+                const [wrappedType, wrappedBound] = engine.newVar()
+                const rhsType = bindings.inChildScope(bindings => {
+                    bindings.insert(name, wrappedType)
+                    return checkExpr(engine, bindings, rhsExpr)
+                })
+                wildcardType = [wrappedBound, [rhsType, resultBound]]
+            }
+        }
+
+        const bound = engine.caseUse(caseTypePairs, wildcardType, span)
+        engine.flow(matchType, bound)
+        return resultType
+
     }
 
     throw "Incomplete!"
@@ -314,6 +367,7 @@ const rec1: Expr = {type: "Record", fields: [
 const case1: Expr = {type: "Case", fields: [["Constructor", span2], rec1]}
 
 const variable: Expr = {type: "Variable", field: ["x", span1]}
+const recVar: Expr = {type: "Variable", field: ["rec", span1]}
 const funRef: Expr = {type: "Variable", field: ["id", span1]}
 
 const binOp: Expr = {type: "BinOp", fields: [[variable, span1], [num2, span2], "IntOp", "Add", span3]}
@@ -339,13 +393,26 @@ const ifDef: VarDefinition = ["ifFun", ifFun]
 const nullCheckFunDef: VarDefinition = ["nullCheckFun", nullCheckFun]
 const idDef: VarDefinition = ["id", idFun]
 
-const accessField: Expr = {type: "FieldAccess", fields: [variable, "name", span1]}
-const accessFieldFun: Expr = {type: "FuncDef", fields: [[arg1, accessField], span1]}
+const pat1: MatchPattern = {type: "Case", val: ["Constructor", "rec"]}
+const wildcardPat: MatchPattern = {type: "Wildcard", val: "x"}
+const accessField: Expr = {type: "FieldAccess", fields: [recVar, "name", span1]}
+const matchExpr: Expr = {
+    type: "Match", 
+    fields: [
+        variable, 
+        [ 
+            [ [pat1, span1], accessField ], 
+            [ [wildcardPat, span2], variable ]
+        ], 
+        span2
+    ]
+}
+const accessFieldFun: Expr = {type: "FuncDef", fields: [[arg1, matchExpr], span1]}
 const accessDef: VarDefinition = ["accessFunc", accessFieldFun]
 
 const ifApp: Expr = {type: "Call", fields: [ifFun, num1, span3]}
 const app1: Expr = {type: "Call", fields: [fun1, num1, span3]}
-const accessApp: Expr = {type: "Call", fields: [accessFieldFun, rec1, span3]}
+const accessApp: Expr = {type: "Call", fields: [accessFieldFun, case1, span3]}
 
 const typeState = new TypeckState()
 
