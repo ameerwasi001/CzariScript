@@ -91,6 +91,54 @@ function checkLet(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Sche
     return {type: "Mono", val: varType}
 }
 
+const zip = <A, B>(as: A[], bs: B[]): [A, B][] => {
+    const xs: [A, B][] = []
+    for(let i = 0; i < as.length; i++) xs.push([as[i], bs[i]])
+    return xs
+}
+
+const enumerate = <T>(xs: T[]): [number, T][] => {
+    const ys: [number, T][] = []
+    let i = 0
+    for(const x of xs) {
+        ys.push([i, x])
+        i++
+    }
+    return ys
+}
+
+function checkLetRecDefs(engine: TypeCheckerCore, bindings: Bindings, defs: [string, Expr][]) {
+    const savedBindings = new Bindings()
+    savedBindings.m = {}
+    for(const k in bindings.m) savedBindings.m[k] = cloneScheme(bindings.m[k])
+    savedBindings.changes = []
+
+    const savedDefs = defs.map(([name, def]): [string, Expr] => [name, cloneExpr(def)])
+    const f = (engine: TypeCheckerCore, i: number) => savedBindings.inChildScope(bindings => {
+        const tempVars: [Value, Use][] = []
+        for(const [name, _] of savedDefs) {
+            const [tempType, tempBound] = engine.newVar()
+            bindings.insert(name, tempType)
+            tempVars.push([tempType, tempBound])
+        }
+
+        for (const [[_1, expr], [_2, bound]] of zip(savedDefs, tempVars)) {
+            const varType = checkExpr(engine, bindings, expr)
+            engine.flow(varType, bound)
+        }
+
+        return tempVars[i][0]
+    })
+
+    f(engine, 0)
+
+    for(const [i, [name, _3]] of enumerate(defs)) {
+        const fx = f
+        const scheme: Scheme = {type: "Poly", val: engine => fx(engine, i)}
+        bindings.insert_scheme(name, scheme)
+    }
+}
+
 function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Value {
     if (expr.type == "BinOp") {
 
@@ -306,6 +354,14 @@ function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Val
         engine.flow(matchType, bound)
         return resultType
 
+    } else if (expr.type == "LetRec") {
+
+        const [defs, restExpr] = expr.fields
+        return bindings.inChildScope(bindings => {
+            checkLetRecDefs(engine, bindings, defs)
+            return checkExpr(engine, bindings, restExpr)
+        })
+
     }
 
     throw "Incomplete!"
@@ -317,7 +373,7 @@ const checkTopLevel = (engine: TypeCheckerCore, bindings: Bindings, ast: TopLeve
         const [name, varExpr] = ast.val
         const varScheme = checkLet(engine, bindings, varExpr)
         bindings.insert_scheme(name, varScheme)
-    } else throw "Incomplete!"
+    } else return checkLetRecDefs(engine, bindings, ast.val)
 }
 
 class TypeckState {
@@ -414,6 +470,15 @@ const ifApp: Expr = {type: "Call", fields: [ifFun, num1, span3]}
 const app1: Expr = {type: "Call", fields: [fun1, num1, span3]}
 const accessApp: Expr = {type: "Call", fields: [accessFieldFun, case1, span3]}
 
+const varG: Expr = {type: "Variable", field: ["g", span1]}
+const varF: Expr = {type: "Variable", field: ["f", span1]}
+const callF: Expr = {type: "Call", fields: [varF, num1, span3]}
+const callG: Expr = {type: "Call", fields: [varG, num1, span3]}
+const funF1: Expr = {type: "FuncDef", fields: [[arg1, callG], span1]}
+const funG1: Expr = {type: "FuncDef", fields: [[arg1, callF], span1]}
+
+const recs: [string, Expr][] = [["f", funF1], ["g", funG1]]
+
 const typeState = new TypeckState()
 
 try {
@@ -421,6 +486,7 @@ try {
         {type: "LetDef", val: idDef},
         {type: "LetDef", val: ifDef},
         {type: "LetDef", val: nullCheckFunDef},
+        {type: "LetRecDef", val: recs},
         {type: "LetDef", val: accessDef},
         {type: "Expr", val: idApp1},
         {type: "Expr", val: idApp2},
