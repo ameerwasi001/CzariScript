@@ -170,7 +170,7 @@ function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Val
             engine.flow(lhsType, lhsBound)
             engine.flow(rhsType, rhsBound)
             return engine.bool(fullSpan)
-        } else if (opType == "AnyCmp") return engine.bool(fullSpan)
+        } else return engine.bool(fullSpan)
 
     } else if (expr.type == "Literal") {
 
@@ -179,7 +179,7 @@ function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Val
         else if (type_ == "Float") return engine.float(span)
         else if (type_ == "Int") return engine.int(span)
         else if (type_ == "Null") return engine.null(span)
-        else if (type_ == "Str") return engine.str(span)
+        else return engine.str(span)
 
     } else if (expr.type == "FuncDef") {
 
@@ -362,9 +362,33 @@ function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Val
             return checkExpr(engine, bindings, restExpr)
         })
 
-    }
+    } else if (expr.type == "RefGet") {
 
-    throw "Incomplete!"
+        const [expr_, span] = expr.field
+        const exprType = checkExpr(engine, bindings, expr_)
+        const [cellType, cellBound] = engine.newVar()
+        const bound = engine.referenceUse(null, cellBound, span) 
+        engine.flow(exprType, bound)
+        return cellType
+   
+    } else if (expr.type == "RefSet") {
+
+        const [[lhsExpr, lhsSpan], rhsExpr] = expr.fields
+        const lhsType = checkExpr(engine, bindings, lhsExpr)
+        const rhsType = checkExpr(engine, bindings, rhsExpr)
+        const bound = engine.referenceUse(rhsType, null, lhsSpan)
+        engine.flow(lhsType, bound)
+        return rhsType
+
+    } else {
+
+        const [expr_, span] = expr.fields
+        const exprType = checkExpr(engine, bindings, expr_)
+        const [read, write] = engine.newVar()
+        engine.flow(exprType, write)
+        return engine.reference(write, read, span)
+
+    }
 }
 
 const checkTopLevel = (engine: TypeCheckerCore, bindings: Bindings, ast: TopLevel) => {
@@ -472,12 +496,22 @@ const accessApp: Expr = {type: "Call", fields: [accessFieldFun, case1, span3]}
 
 const varG: Expr = {type: "Variable", field: ["g", span1]}
 const varF: Expr = {type: "Variable", field: ["f", span1]}
-const callF: Expr = {type: "Call", fields: [varF, num1, span3]}
-const callG: Expr = {type: "Call", fields: [varG, num1, span3]}
+const callF: Expr = {type: "Call", fields: [varF, binOp, span3]}
+const callG: Expr = {type: "Call", fields: [varG, variable, span3]}
 const funF1: Expr = {type: "FuncDef", fields: [[arg1, callG], span1]}
 const funG1: Expr = {type: "FuncDef", fields: [[arg1, callF], span1]}
 
-const recs: [string, Expr][] = [["f", funF1], ["g", funG1]]
+const recs: VarDefinition[] = [["f", funF1], ["g", funG1]]
+
+const callGTop: Expr = {type: "Call", fields: [varG, num1, span3]}
+
+const varReference: Expr = {type: "Variable", field: ["reference", span1]}
+const ref1: Expr = {type: "NewRef", fields: [num1, span1]}
+
+const referenceDef: VarDefinition = ["reference", ref1]
+
+const ref1Get: Expr = {type: "RefGet", field: [varReference, span2]}
+const ref1Set: Expr = {type: "RefSet", fields: [[varReference, span2], num2]}
 
 const typeState = new TypeckState()
 
@@ -486,6 +520,7 @@ try {
         {type: "LetDef", val: idDef},
         {type: "LetDef", val: ifDef},
         {type: "LetDef", val: nullCheckFunDef},
+        {type: "LetDef", val: referenceDef},
         {type: "LetRecDef", val: recs},
         {type: "LetDef", val: accessDef},
         {type: "Expr", val: idApp1},
@@ -495,6 +530,9 @@ try {
         {type: "Expr", val: ifApp},
         {type: "Expr", val: case1},
         {type: "Expr", val: accessApp},
+        {type: "Expr", val: callGTop},
+        {type: "Expr", val: ref1Set},
+        {type: "Expr", val: ref1Get},
     ])
 } catch(err) {
     console.log(err.print(spanManager))
