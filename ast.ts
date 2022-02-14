@@ -1,31 +1,5 @@
 import { Span, Spanned, SpannedError, cloneSpan } from "./spans.ts"
-
-type Literal =
-    "Bool"
-    | "Float"
-    | "Int"
-    | "Null"
-    | "Str"
-
-type Op =
-    "Add"
-    | "Sub"
-    | "Mult"
-    | "Div"
-    | "Rem"
-    | "Lt"
-    | "Lte"
-    | "Gt"
-    | "Gte"
-    | "Eq"
-    | "Neq"
-
-type OpType = 
-    "IntOp"
-    | "FloatOp"
-    | "StrOp"
-    | "IntOrFloatCmp"
-    | "AnyCmp"
+import { Literal, Op, OpType } from "./token.ts"
 
 type VarDefinition = [string, Expr]
 

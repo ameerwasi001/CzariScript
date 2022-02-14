@@ -425,97 +425,97 @@ class TypeckState {
     }
 }
 
-const spanManager = new SpanManager()
-spanManager.addSource("___")
-const spanMaker = new SpanMaker(spanManager, 0, new Map())
-const span1 = spanMaker.span(0, 1)
-const span2 = spanMaker.span(1, 2)
-const span3 = spanMaker.span(0, 2)
+const test = () => {
+    const spanManager = new SpanManager()
+    spanManager.addSource("___")
+    const spanMaker = new SpanMaker(spanManager, 0, new Map())
+    const span1 = spanMaker.span(0, 1)
+    const span2 = spanMaker.span(1, 2)
+    const span3 = spanMaker.span(0, 2)
 
-const num1: Expr = {type: "Literal", fields: ["Int", ["2", span1]]}
-const num2: Expr = {type: "Literal", fields: ["Int", ["1", span2]]}
-const str1: Expr = {type: "Literal", fields: ["Str", ["AbcXYz", span3]]}
-const null1: Expr = {type: "Literal", fields: ["Null", ["", span2]]}
-const rec1: Expr = {type: "Record", fields: [
-    null, 
-    [
-        [ ["num", span2], num1 ],
-        [ ["name", span2], str1 ]
-    ],
-    span3
-]}
-const case1: Expr = {type: "Case", fields: [["Constructor", span2], rec1]}
+    const num1: Expr = {type: "Literal", fields: ["Int", ["2", span1]]}
+    const num2: Expr = {type: "Literal", fields: ["Int", ["1", span2]]}
+    const str1: Expr = {type: "Literal", fields: ["Str", ["AbcXYz", span3]]}
+    const null1: Expr = {type: "Literal", fields: ["Null", ["", span2]]}
+    const rec1: Expr = {type: "Record", fields: [
+        null, 
+        [
+            [ ["num", span2], num1 ],
+            [ ["name", span2], str1 ]
+        ],
+        span3
+    ]}
+    const case1: Expr = {type: "Case", fields: [["Constructor", span2], rec1]}
 
-const variable: Expr = {type: "Variable", field: ["x", span1]}
-const recVar: Expr = {type: "Variable", field: ["rec", span1]}
-const funRef: Expr = {type: "Variable", field: ["id", span1]}
+    const variable: Expr = {type: "Variable", field: ["x", span1]}
+    const recVar: Expr = {type: "Variable", field: ["rec", span1]}
+    const funRef: Expr = {type: "Variable", field: ["id", span1]}
 
-const binOp: Expr = {type: "BinOp", fields: [[variable, span1], [num2, span2], "IntOp", "Add", span3]}
-const arg1: LetPattern = {type: "Var", val: "x"}
+    const binOp: Expr = {type: "BinOp", fields: [[variable, span1], [num2, span2], "IntOp", "Add", span3]}
+    const arg1: LetPattern = {type: "Var", val: "x"}
 
-const idFun: Expr = {type: "FuncDef", fields: [[arg1, variable], span1]}
+    const idFun: Expr = {type: "FuncDef", fields: [[arg1, variable], span1]}
 
-const idApp1: Expr = {type: "Call", fields: [funRef, num2, span3]}
-const idApp2: Expr = {type: "Call", fields: [funRef, str1, span3]}
-const idBinOp: Expr = {type: "BinOp", fields: [[idApp1, span1], [idApp1, span2], "IntOp", "Add", span3]}
+    const idApp1: Expr = {type: "Call", fields: [funRef, num2, span3]}
+    const idApp2: Expr = {type: "Call", fields: [funRef, str1, span3]}
+    const idBinOp: Expr = {type: "BinOp", fields: [[idApp1, span1], [idApp1, span2], "IntOp", "Add", span3]}
 
-const fun1: Expr = {type: "FuncDef", fields: [[arg1, binOp], span1]}
+    const fun1: Expr = {type: "FuncDef", fields: [[arg1, binOp], span1]}
 
-const condExpr: Expr = {type: "BinOp", fields: [[variable, span1], [num2, span2], "IntOrFloatCmp", "Eq", span3]}
-const ifExpr: Expr = {type: "If", fields: [[condExpr, span2], variable, num2]}
-const ifFun: Expr = {type: "FuncDef", fields: [[arg1, ifExpr], span1]}
+    const condExpr: Expr = {type: "BinOp", fields: [[variable, span1], [num2, span2], "IntOrFloatCmp", "Eq", span3]}
+    const ifExpr: Expr = {type: "If", fields: [[condExpr, span2], variable, num2]}
+    const ifFun: Expr = {type: "FuncDef", fields: [[arg1, ifExpr], span1]}
 
-const nullCheckCond: Expr = {type: "BinOp", fields: [[variable, span1], [null1, span2], "AnyCmp", "Eq", span3]}
-const nullCheckExpr: Expr = {type: "If", fields: [[nullCheckCond, span2], num1, variable]}
-const nullCheckFun: Expr = {type: "FuncDef", fields: [[arg1, nullCheckExpr], span1]}
+    const nullCheckCond: Expr = {type: "BinOp", fields: [[variable, span1], [null1, span2], "AnyCmp", "Eq", span3]}
+    const nullCheckExpr: Expr = {type: "If", fields: [[nullCheckCond, span2], num1, variable]}
+    const nullCheckFun: Expr = {type: "FuncDef", fields: [[arg1, nullCheckExpr], span1]}
 
-const ifDef: VarDefinition = ["ifFun", ifFun]
-const nullCheckFunDef: VarDefinition = ["nullCheckFun", nullCheckFun]
-const idDef: VarDefinition = ["id", idFun]
+    const ifDef: VarDefinition = ["ifFun", ifFun]
+    const nullCheckFunDef: VarDefinition = ["nullCheckFun", nullCheckFun]
+    const idDef: VarDefinition = ["id", idFun]
 
-const pat1: MatchPattern = {type: "Case", val: ["Constructor", "rec"]}
-const wildcardPat: MatchPattern = {type: "Wildcard", val: "x"}
-const accessField: Expr = {type: "FieldAccess", fields: [recVar, "name", span1]}
-const matchExpr: Expr = {
-    type: "Match", 
-    fields: [
-        variable, 
-        [ 
-            [ [pat1, span1], accessField ], 
-            [ [wildcardPat, span2], variable ]
-        ], 
-        span2
-    ]
-}
-const accessFieldFun: Expr = {type: "FuncDef", fields: [[arg1, matchExpr], span1]}
-const accessDef: VarDefinition = ["accessFunc", accessFieldFun]
+    const pat1: MatchPattern = {type: "Case", val: ["Constructor", "rec"]}
+    const wildcardPat: MatchPattern = {type: "Wildcard", val: "x"}
+    const accessField: Expr = {type: "FieldAccess", fields: [recVar, "name", span1]}
+    const matchExpr: Expr = {
+        type: "Match", 
+        fields: [
+            variable, 
+            [ 
+                [ [pat1, span1], accessField ], 
+                [ [wildcardPat, span2], variable ]
+            ], 
+            span2
+        ]
+    }
+    const accessFieldFun: Expr = {type: "FuncDef", fields: [[arg1, matchExpr], span1]}
+    const accessDef: VarDefinition = ["accessFunc", accessFieldFun]
 
-const ifApp: Expr = {type: "Call", fields: [ifFun, num1, span3]}
-const app1: Expr = {type: "Call", fields: [fun1, num1, span3]}
-const accessApp: Expr = {type: "Call", fields: [accessFieldFun, case1, span3]}
+    const ifApp: Expr = {type: "Call", fields: [ifFun, num1, span3]}
+    const app1: Expr = {type: "Call", fields: [fun1, num1, span3]}
+    const accessApp: Expr = {type: "Call", fields: [accessFieldFun, case1, span3]}
 
-const varG: Expr = {type: "Variable", field: ["g", span1]}
-const varF: Expr = {type: "Variable", field: ["f", span1]}
-const callF: Expr = {type: "Call", fields: [varF, binOp, span3]}
-const callG: Expr = {type: "Call", fields: [varG, variable, span3]}
-const funF1: Expr = {type: "FuncDef", fields: [[arg1, callG], span1]}
-const funG1: Expr = {type: "FuncDef", fields: [[arg1, callF], span1]}
+    const varG: Expr = {type: "Variable", field: ["g", span1]}
+    const varF: Expr = {type: "Variable", field: ["f", span1]}
+    const callF: Expr = {type: "Call", fields: [varF, binOp, span3]}
+    const callG: Expr = {type: "Call", fields: [varG, variable, span3]}
+    const funF1: Expr = {type: "FuncDef", fields: [[arg1, callG], span1]}
+    const funG1: Expr = {type: "FuncDef", fields: [[arg1, callF], span1]}
 
-const recs: VarDefinition[] = [["f", funF1], ["g", funG1]]
+    const recs: VarDefinition[] = [["f", funF1], ["g", funG1]]
 
-const callGTop: Expr = {type: "Call", fields: [varG, num1, span3]}
+    const callGTop: Expr = {type: "Call", fields: [varG, num1, span3]}
 
-const varReference: Expr = {type: "Variable", field: ["reference", span1]}
-const ref1: Expr = {type: "NewRef", fields: [num1, span1]}
+    const varReference: Expr = {type: "Variable", field: ["reference", span1]}
+    const ref1: Expr = {type: "NewRef", fields: [num1, span1]}
 
-const referenceDef: VarDefinition = ["reference", ref1]
+    const referenceDef: VarDefinition = ["reference", ref1]
 
-const ref1Get: Expr = {type: "RefGet", field: [varReference, span2]}
-const ref1Set: Expr = {type: "RefSet", fields: [[varReference, span2], num2]}
+    const ref1Get: Expr = {type: "RefGet", field: [varReference, span2]}
+    const ref1Set: Expr = {type: "RefSet", fields: [[varReference, span2], num2]}
 
-const typeState = new TypeckState()
+    const typeState = new TypeckState()
 
-try {
     typeState.checkScript([
         {type: "LetDef", val: idDef},
         {type: "LetDef", val: ifDef},
@@ -534,6 +534,8 @@ try {
         {type: "Expr", val: ref1Set},
         {type: "Expr", val: ref1Get},
     ])
-} catch(err) {
-    console.log(err.print(spanManager))
 }
+
+const tests = [test]
+
+export { tests }

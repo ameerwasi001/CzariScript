@@ -3,8 +3,8 @@ import { OrderedSet, assert_array_eq, clear_arr } from "./utils.ts"
 type ID = number
 
 class Reachability {
-    upsets: Array<OrderedSet<ID>>;
-    downsets: Array<OrderedSet<ID>>;
+    upsets: Array<OrderedSet<ID>>
+    downsets: Array<OrderedSet<ID>>
 
     constructor() {
         this.upsets = []
