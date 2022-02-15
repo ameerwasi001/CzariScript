@@ -31,7 +31,21 @@ type Token =
     {type: "Op", op: Op, opType: OpType, span: Span}
     | {type: "Literal", literalType: Literal, value: string, span: Span}
     | {type: "Variable", value: string, span: Span}
+    | {type: "Keyword", value: string, span: Span}
+    | {type: "Newline", span: Span}
+    | {type: "Equals", span: Span}
+    | {type: "Lambda", span: Span}
+    | {type: "Arrow", span: Span}
     | {type: "OpenParen", span: Span}
     | {type: "CloseParen", span: Span}
 
-export type { Token, Literal, Op, OpType }
+type Keyword = 
+    "if"
+    | "then"
+    | "else"
+    | "let"
+
+const keywords = new Set(["if", "then", "else", "let"])
+
+export type { Keyword, Token, Literal, Op, OpType }
+export { keywords }

@@ -1,6 +1,6 @@
 import { Span, Spanned, SpanMaker, SpanManager } from "./spans.ts"
 import { assert_array_eq } from "./utils.ts"
-import { Literal, Op, OpType, Token } from "./token.ts"
+import { Literal, Op, OpType, Token, keywords } from "./token.ts"
 
 type PartSpan = number
 
@@ -31,7 +31,51 @@ class Lexer {
     currentChar: string
     spanManager: SpanManager
     spanMaker: SpanMaker
-    rules: [(self: Lexer) => boolean, (self: Lexer) => Token][] = [
+    rules: [(self: Lexer) => boolean, (self: Lexer) => Token | null][] = [
+        [
+            (self: Lexer) => self.matches("->"), 
+            (self: Lexer) => {
+                const a = self.index
+                self.advance()
+                return self.advanceValue({type: "Arrow", span: self.span(a, self.index)})
+            }
+        ],
+        [
+            (self: Lexer) => self.matches(">="), 
+            (self: Lexer) => {
+                const a = self.index
+                self.advance()
+                return self.advanceValue({type: "Op", op: "Gte", opType: "IntOrFloatCmp", span: self.span(a, self.index)})
+            }
+        ],
+        [
+            (self: Lexer) => self.matches("<="), 
+            (self: Lexer) => {
+                const a = self.index
+                self.advance()
+                return self.advanceValue({type: "Op", op: "Lte", opType: "IntOrFloatCmp", span: self.span(a, self.index)})
+            }
+        ],
+        [
+            (self: Lexer) => self.matches("<"), 
+            (self: Lexer) => self.advanceValue(
+                {type: "Op", op: "Lt", opType: "IntOrFloatCmp", span: self.spanSingle()}
+            )
+        ],
+        [
+            (self: Lexer) => self.matches(">"), 
+            (self: Lexer) => self.advanceValue(
+                {type: "Op", op: "Gt", opType: "IntOrFloatCmp", span: self.spanSingle()}
+            )
+        ],
+        [
+            (self: Lexer) => self.matches("!="), 
+            (self: Lexer) => {
+                const a = self.index
+                self.advance()
+                return self.advanceValue({type: "Op", op: "Neq", opType: "AnyCmp", span: self.span(a, self.index)})
+            }
+        ],
         [
             (self: Lexer) => self.matches("+"), 
             (self: Lexer) => self.advanceValue(
@@ -69,6 +113,64 @@ class Lexer {
             )
         ],
         [
+            (self: Lexer) => self.matches(".+"), 
+            (self: Lexer) => self.advanceValue(
+                {type: "Op", op: "Add", opType: "FloatOp", span: self.spanSingle()}
+            )
+        ],
+        [
+            (self: Lexer) => self.matches(".-"), 
+            (self: Lexer) => self.advanceValue(
+                {type: "Op", op: "Sub", opType: "FloatOp", span: self.spanSingle()}
+            )
+        ],
+        [
+            (self: Lexer) => self.matches(".*"), 
+            (self: Lexer) => self.advanceValue(
+                {type: "Op", op: "Mult", opType: "FloatOp", span: self.spanSingle()}
+            )
+        ],
+        [
+            (self: Lexer) => self.matches("./"), 
+            (self: Lexer) => self.advanceValue(
+                {type: "Op", op: "Div", opType: "FloatOp", span: self.spanSingle()}
+            )
+        ],
+        [
+            (self: Lexer) => self.matches("\\"), 
+            (self: Lexer) => self.advanceValue(
+                {type: "Lambda", span: self.spanSingle()}
+            )
+        ],
+        [
+            (self: Lexer) => self.matches(" ") || self.matches("\r") || self.matches("\n"), 
+            (self: Lexer) => self.advanceValue(null)
+        ],
+        [
+            (self: Lexer) => self.matches(";"), 
+            (self: Lexer) => self.advanceValue({type: "Newline", span: self.spanSingle()})
+        ],
+        [
+            (self: Lexer) => self.matches("\""),
+            (self: Lexer) => {
+                let value = ""
+                const a = self.index
+                self.advance()
+                while(self.currentChar != "\"") {
+                    value += self.currentChar
+                    self.advance()
+                }
+                self.advance()
+                return {type: "Literal", literalType: "Str", value, span: self.span(a, self.index)}
+            }
+        ],
+        [
+            (self: Lexer) => self.matches("="),
+            (self: Lexer) => self.advanceValue(
+                {type: "Equals", span: self.spanSingle()}
+            )
+        ],
+        [
             (self: Lexer) => DIGITS.has(self.currentChar), 
             (self: Lexer) => {
                 const starter = this.index
@@ -85,13 +187,16 @@ class Lexer {
             (self: Lexer) => {
                 const starter = this.index
                 let str = ""
-                while(LOWER_ALPHAS.has(self.currentChar)) {
+                while(LOWER_ALPHAS.has(self.currentChar) || UPPER_ALPHAS.has(self.currentChar) || DIGITS.has(self.currentChar))  {
                     str += self.currentChar
                     self.advance()
                 }
-                return {type: "Variable", value: str, span: self.span(starter, self.index)}
+                const span = self.span(starter, self.index)
+                if (str == "null") return {type: "Literal", literalType: "Null", value: "", span}
+                else if (str == "true" || str == "false") return {type: "Literal", literalType: "Bool", value: str, span}
+                return {type: keywords.has(str) ? "Keyword" : "Variable", value: str, span}
             }
-        ]
+        ],
     ]
 
     constructor(source: string){
@@ -151,19 +256,26 @@ class Lexer {
             let matched = false
             for(const [cond, rule] of this.rules) {
                 if (cond(this)) {
-                    toks.push(rule(this))
+                    const matchedPart = rule(this)
+                    if (matchedPart != null) toks.push(matchedPart)
                     matched = true
                 }
                 if (this.currentChar == "") break
             }
-            if (!matched) break
+            if (!matched) throw `Expected a token, found '${this.source[this.index]}'\n`
             if(this.currentChar == "") break
         }
         return toks
     }
 }
 
-const lexer = new Lexer("x*(22+x)/2")
+const lexer = new Lexer(`
+let none = null;
+let t = true;
+let f = \\x -> x*(22+x)/2.+3;
+let moreThan10 = \\n -> n > 10;
+let s = if t then "Hello, I am Ameer" else "";
+`)
 const toks = lexer.lex()
 
 console.log(toks)
