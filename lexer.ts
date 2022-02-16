@@ -113,6 +113,24 @@ class Lexer {
             )
         ],
         [
+            (self: Lexer) => self.matches("{"), 
+            (self: Lexer) => self.advanceValue(
+                {type: "OpenBrace", span: self.spanSingle()}
+            )
+        ],
+        [
+            (self: Lexer) => self.matches("}"), 
+            (self: Lexer) => self.advanceValue(
+                {type: "CloseBrace", span: self.spanSingle()}
+            )
+        ],
+        [
+            (self: Lexer) => self.matches(","), 
+            (self: Lexer) => self.advanceValue(
+                {type: "Comma", span: self.spanSingle()}
+            )
+        ],
+        [
             (self: Lexer) => self.matches(".+"), 
             (self: Lexer) => self.advanceValue(
                 {type: "Op", op: "Add", opType: "FloatOp", span: self.spanSingle()}
@@ -197,6 +215,19 @@ class Lexer {
                 return {type: keywords.has(str) ? "Keyword" : "Variable", value: str, span}
             }
         ],
+        [
+            (self: Lexer) => UPPER_ALPHAS.has(self.currentChar), 
+            (self: Lexer) => {
+                const starter = this.index
+                let str = ""
+                while(LOWER_ALPHAS.has(self.currentChar) || UPPER_ALPHAS.has(self.currentChar) || DIGITS.has(self.currentChar))  {
+                    str += self.currentChar
+                    self.advance()
+                }
+                const span = self.span(starter, self.index)
+                return {type: "Constructor", value: str, span}
+            }
+        ],
     ]
 
     constructor(source: string){
@@ -275,6 +306,7 @@ let t = true;
 let f = \\x -> x*(22+x)/2.+3;
 let moreThan10 = \\n -> n > 10;
 let s = if t then "Hello, I am Ameer" else "";
+let struct = {a=1, b=2};
 `)
 const toks = lexer.lex()
 

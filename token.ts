@@ -31,6 +31,7 @@ type Token =
     {type: "Op", op: Op, opType: OpType, span: Span}
     | {type: "Literal", literalType: Literal, value: string, span: Span}
     | {type: "Variable", value: string, span: Span}
+    | {type: "Constructor", value: string, span: Span}
     | {type: "Keyword", value: string, span: Span}
     | {type: "Newline", span: Span}
     | {type: "Equals", span: Span}
@@ -38,6 +39,9 @@ type Token =
     | {type: "Arrow", span: Span}
     | {type: "OpenParen", span: Span}
     | {type: "CloseParen", span: Span}
+    | {type: "OpenBrace", span: Span}
+    | {type: "CloseBrace", span: Span}
+    | {type: "Comma", span: Span}
 
 type Keyword = 
     "if"
