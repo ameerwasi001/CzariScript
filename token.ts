@@ -42,6 +42,7 @@ type Token =
     | {type: "OpenBrace", span: Span}
     | {type: "CloseBrace", span: Span}
     | {type: "Comma", span: Span}
+    | {type: "Eof", span: Span}
 
 type Keyword = 
     "if"

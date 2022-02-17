@@ -157,9 +157,10 @@ class SpannedError {
     print(sm: SpanManager){
         let out = "";
         for (const [msg, span] of this.pairs) {
-            out += msg;
-            out += "\n";
-            out += sm.print(span);
+            out += msg
+            out += "\n"
+            out += sm.print(span)
+            // console.log(msg, "\n", sm.print(span), " == ", out)
         }
         return out
     }

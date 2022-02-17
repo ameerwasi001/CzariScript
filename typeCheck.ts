@@ -538,4 +538,4 @@ const test = () => {
 
 const tests = [test]
 
-export { tests }
+export { TypeckState, tests }

@@ -33,6 +33,12 @@ class Lexer {
     spanMaker: SpanMaker
     rules: [(self: Lexer) => boolean, (self: Lexer) => Token | null][] = [
         [
+            (self: Lexer) => self.matches("&"), 
+            (self: Lexer) => self.advanceValue(
+                {type: "Op", op: "Add", opType: "StrOp", span: self.spanSingle()}
+            )
+        ],
+        [
             (self: Lexer) => self.matches("->"), 
             (self: Lexer) => {
                 const a = self.index
@@ -236,6 +242,7 @@ class Lexer {
         this.currentChar = ""
         this.spanManager = new SpanManager()
         this.spanMaker = new SpanMaker(this.spanManager, 0, new Map())
+        this.spanManager.addSource(source)
         this.advance()
     }
 
@@ -296,20 +303,22 @@ class Lexer {
             if (!matched) throw `Expected a token, found '${this.source[this.index]}'\n`
             if(this.currentChar == "") break
         }
+        const lastSpan = toks[toks.length - 1].span
+        toks.push({type: "Eof", span: lastSpan})
         return toks
     }
 }
 
-const lexer = new Lexer(`
-let none = null;
-let t = true;
-let f = \\x -> x*(22+x)/2.+3;
-let moreThan10 = \\n -> n > 10;
-let s = if t then "Hello, I am Ameer" else "";
-let struct = {a=1, b=2};
-`)
-const toks = lexer.lex()
+// const lexer = new Lexer(`
+// let none = null;
+// let t = true;
+// let f = \\x -> x*(22+x)/2.+3;
+// let moreThan10 = \\n -> n > 10;
+// let s = if t then "Hello, I am Ameer" else "";
+// let struct = {a=1, b=2};
+// `)
+// const toks = lexer.lex()
 
-console.log(toks)
+// console.log(toks)
 
 export { Lexer }
