@@ -89,6 +89,7 @@ class SpanManager {
 
         out += lineBefore
         out += tok
+        out += "\n"
         out += lineAfter
         out += "\n"
 
@@ -101,6 +102,7 @@ class SpanManager {
         for(let i = 0; i <= 2; i++) {
             n++
             if (!(aIter.length <= n)) {
+                console.log(`|::::'${aIter}'::::|`)
                 out += aIter[n]
                 out += "\n"
             }

@@ -7,16 +7,16 @@ const compile = (source: string) => {
     const spanManager = lexer.spanManager
     const toks = lexer.lex()
     try {
-        const ast = new Parser(toks).parse()
-        new TypeckState().checkScript([
-            {type: "Expr", val: ast[0]}
-        ])
-        return ast
+        const exprs = new Parser(toks).parseTopLevel()
+        new TypeckState().checkScript(exprs)
+        return exprs
     } catch(err) {
         throw err.print(spanManager)
     }
 }
 
-compile(`9+10`)
-compile(`"a" & "b"`)
-compile(`(if true then 1 else 4)+4`)
+compile(`
+9+10*2;
+"Am" & "ee" & "r";
+(if true then 1 else 4)+4;
+`)

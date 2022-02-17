@@ -1,6 +1,7 @@
 import { Expr } from "./ast.ts"
 import { Token, Op } from "./token.ts"
 import { Spanned, SpannedError } from "./spans.ts"
+import { TopLevel } from "./ast.ts"
 
 class Parser {
     index: number
@@ -39,6 +40,37 @@ class Parser {
             )
         }
         return expr
+    }
+
+    parseSeperated<A>(sep: string, start: string | null, end: string, parser: () => Spanned<A>){
+        if(start != null && this.currentTok.type != start) throw SpannedError.new1(
+            `Syntax Error: Unexpected token ${this.currentTok.type}, expected 'then'`,
+            this.currentTok.span
+        )
+        const ls: Spanned<A>[] = []
+        if(this.currentTok.type == end) 
+        {
+            this.advance();
+            return ls;
+        }
+        ls.push(parser())
+        while(this.currentTok.type == sep)
+        {
+            this.advance();
+            if(this.currentTok.type == end) break
+            ls.push(parser());
+        }
+        if(this.currentTok.type != end) throw SpannedError.new1(
+            `Expected an 'end' token, got ${this.currentTok.type}`,
+            this.currentTok.span
+        )
+        return ls
+    }
+
+    parseTopLevel(): TopLevel[] {
+        return this.parseSeperated("Newline", null, "Eof", () => this.expr()).map(val => {
+            return {type: "Expr", val: val[0]}
+        })
     }
 
     expr(){
