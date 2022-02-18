@@ -16,7 +16,9 @@ const compile = (source: string) => {
 }
 
 compile(`
-9+10*2;
-"Am" & "ee" & "r";
-(if true then 1 else 4)+4;
+let n = 9+10*2;
+let name = "Am" & "ee" & "r";
+let x = (if true then 1 else 4)+4;
+n+1;
+"My name is " & name;
 `)

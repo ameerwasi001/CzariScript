@@ -31,23 +31,12 @@ class Parser {
         return left
     }
 
-    parse(){
-        const expr = this.expr()
-        if(this.currentTok.type != "Eof") {
-            throw SpannedError.new1(
-                "Syntax Error: Expected EOF",
-                this.currentTok.span
-            )
-        }
-        return expr
-    }
-
-    parseSeperated<A>(sep: string, start: string | null, end: string, parser: () => Spanned<A>){
+    parseSeperated<A>(sep: string, start: string | null, end: string, parser: () => A){
         if(start != null && this.currentTok.type != start) throw SpannedError.new1(
             `Syntax Error: Unexpected token ${this.currentTok.type}, expected 'then'`,
             this.currentTok.span
         )
-        const ls: Spanned<A>[] = []
+        const ls: A[] = []
         if(this.currentTok.type == end) 
         {
             this.advance();
@@ -67,10 +56,59 @@ class Parser {
         return ls
     }
 
+    parse(){
+        const expr = this.expr()
+        if(this.currentTok.type != "Eof") {
+            throw SpannedError.new1(
+                "Syntax Error: Expected EOF",
+                this.currentTok.span
+            )
+        }
+        return expr
+    }
+
     parseTopLevel(): TopLevel[] {
-        return this.parseSeperated("Newline", null, "Eof", () => this.expr()).map(val => {
-            return {type: "Expr", val: val[0]}
-        })
+        const exprs: ({type: "Left", ident: string, val: Expr}|{type: "Right", val: Expr})[] = this.parseSeperated(
+            "Newline", 
+            null, 
+            "Eof", 
+            () => {
+                const tok = this.currentTok
+                if(tok.type == "Keyword" && tok.value == "let") {
+                    this.advance()
+                    const tok = this.currentTok
+                    if(tok.type != "Variable") throw SpannedError.new1(
+                        `Expected identifier, got ${this.currentTok.type}`,
+                        this.currentTok.span
+                    )
+                    const ident = tok.value
+                    this.advance()
+                    if(this.currentTok.type != "Equals") throw SpannedError.new1(
+                        `Expected identifier, got ${this.currentTok.type}`,
+                        this.currentTok.span
+                    )
+                    this.advance()
+                    const expr = this.expr()
+                    return {type: "Left", ident, val: expr[0]}
+                } else return {type: "Right", val: this.expr()[0]}
+            }
+        )
+
+        const defs: [string, Expr][] = []
+        const evals: Expr[] = []
+        for(const expr of exprs) {
+            if(expr.type == "Left") defs.push([expr.ident, expr.val])
+            else evals.push(expr.val)
+        }
+        const expressions: TopLevel[] = evals.map(val => { return {type: "Expr", val} })
+        const definitions: TopLevel = {type: "LetRecDef", val: defs}
+        if(definitions.type == "LetRecDef" && definitions.val.length > 0) {
+            const finals: TopLevel[] = []
+            finals.push(definitions)
+            for(const e of expressions) finals.push(e)
+            return finals
+        }
+        return expressions
     }
 
     expr(){
@@ -87,6 +125,12 @@ class Parser {
             this.advance()
             return [
                 {type: "Literal", fields: [tok.literalType, [tok.value, tok.span]]},
+                tok.span
+            ]
+        } else if (tok.type == "Variable") {
+            this.advance()
+            return [
+                {type: "Variable", field: [tok.value, tok.span]}, 
                 tok.span
             ]
         } else if (tok.type == "Keyword" && tok.value == "if") {

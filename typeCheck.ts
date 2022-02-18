@@ -195,7 +195,7 @@ function checkExpr(engine: TypeCheckerCore, bindings: Bindings, expr: Expr): Val
 
         const [name, span] = expr.field
         const scheme = bindings.get(name)
-        if (scheme == null) throw SpannedError.new1(`SyntaxError: Undefined variable ${name}"`, span)
+        if (scheme == null) throw SpannedError.new1(`SyntaxError: Undefined variable "${name}"`, span)
         else {
             if (scheme.type == "Mono") return scheme.val
             else return scheme.val(engine)
