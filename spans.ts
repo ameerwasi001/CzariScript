@@ -18,6 +18,8 @@ const rsplit = (self: string, sep: string, maxsplit=1) => {
     return ans
 }
 
+const split = (self: string, sep: string) => self.split(sep)
+
 const trim = (self: string[]) => {
     const ans = [...self]
     while(ans[0] == "") ans.shift()
@@ -58,55 +60,26 @@ class SpanManager {
         const [source_ind, l, r] = unit
         let source = this.sources[source_ind]
         let out = ""
-
         assert_lte(l, r)
-        let [before, newSource] = splitAt(source, 1)
-        source = newSource
-
-        const tok = trim(splitAt(source, r-1)[0].split("\n"))[0]
-        const after = splitAt(source, tok.length-1)[1]
-
-        let bIter = rsplit(before, "\n")
-        let lineBefore = bIter[0]
-        let aIter = trim(after.split("\n"))
-        let lineAfter = aIter[0]
-        lineAfter = lineAfter == undefined ? "" : lineAfter
-        lineBefore = lineBefore == undefined ? "" : lineBefore
-        let n = 0
-
-        if (bIter.length > 1) {
-            let b = false
-            if (bIter.length > 2) {
-                out += bIter[2]
-                out += "\n"
-                n = 2
-                b = true
-            }
-            out += bIter[1]
-            out += "\n"
-            n = b ? n : 1
-        }
-
-        out += lineBefore
-        out += tok
-        out += "\n"
-        out += lineAfter
-        out += "\n"
-
-        out += " ".repeat(lineBefore.length)
-        out += "^"
-        out += "~".repeat(Math.max(1, tok.length) - 1)
-        out += " ".repeat(lineAfter.length)
-        out += "\n"
-
-        for(let i = 0; i <= 2; i++) {
-            n++
-            if (!(aIter.length <= n)) {
-                out += aIter[n]
-                out += "\n"
+        let lineNo = 0
+        let charNo = 0
+        let col = 0
+        let b = true
+        const lines = []
+        for(const line of trim(source.split("\n"))) {
+            if(b) lineNo += 1
+            const origChanNo = charNo
+            charNo += line.length+1
+            if (charNo >= l && b) {
+                lines.push(line + "\n")
+                col = l - origChanNo - 1
+                b = false
             }
         }
-
+        out += `In line no: ${lineNo.toString()}, on coulmn ${col.toString()}\n`
+        out += lines.join("\n")
+        out += " ".repeat(col)
+        out += "^\n"
         return out
     }
 }

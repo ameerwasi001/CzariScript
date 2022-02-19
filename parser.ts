@@ -1,7 +1,20 @@
 import { Expr } from "./ast.ts"
 import { Token, Op } from "./token.ts"
-import { Spanned, SpannedError } from "./spans.ts"
+import { Span, Spanned, SpannedError } from "./spans.ts"
 import { TopLevel } from "./ast.ts"
+
+function buildList(atoms: Spanned<Expr>[]) {
+    if (atoms[atoms.length-1]==undefined) throw "Impossible!"
+    if (atoms[0]==undefined) throw "Impossible!"
+    if (atoms[1]==undefined) throw "Impossible!"
+    let call: Spanned<Expr> = [{type: "Call", fields: [atoms[0][0], atoms[1][0], atoms[0][1]]}, atoms[0][1]]
+    let i = 2
+    while(i < atoms.length) {
+        call = [{type: "Call", fields: [call[0], atoms[i][0], atoms[i][1]]}, atoms[i][1]]
+        i++
+    }
+    return call
+}
 
 class Parser {
     index: number
@@ -17,6 +30,11 @@ class Parser {
 
     advance(){
         this.index++
+        this.currentTok = this.index > this.toks.length ? this.toks[this.toks.length - 1] : this.toks[this.index]
+    }
+
+    revert(n: number){
+        this.index = n
         this.currentTok = this.index > this.toks.length ? this.toks[this.toks.length - 1] : this.toks[this.index]
     }
 
@@ -120,6 +138,23 @@ class Parser {
     }
 
     factor(): Spanned<Expr> {
+        const atoms = [this.atom()]
+        while(true){
+            const index = this.index
+            try {
+                atoms.push(this.atom())
+            } catch(err) {
+                if (!(err instanceof SpannedError)) throw err
+                this.revert(index)
+                break
+            }
+        }
+        if(atoms.length < 2) return atoms[0]
+        return buildList(atoms)
+        // throw "Shit!" 
+    }
+
+    atom(): Spanned<Expr> {
         const tok = this.currentTok
         if (tok.type == "Literal") {
             this.advance()
@@ -132,6 +167,25 @@ class Parser {
             return [
                 {type: "Variable", field: [tok.value, tok.span]}, 
                 tok.span
+            ]
+        } else if (tok.type == "Lambda"){
+            this.advance()
+            const currTok = this.currentTok
+            if(currTok.type != "Variable") throw SpannedError.new1(
+                `Syntax Error: Unexpected token ${tok.type}, expected an IDENTIFIER`,
+                this.currentTok.span
+            )
+            const ident = currTok.value
+            this.advance()
+            if(this.currentTok.type != "Arrow") throw SpannedError.new1(
+                `Syntax Error: Unexpected token ${tok.type}, expected an -> token`,
+                this.currentTok.span
+            )
+            this.advance()
+            const expr = this.expr()
+            return [
+                {type: "FuncDef", fields: [[{type: "Var", val: ident}, expr[0]], this.currentTok.span]}, 
+                this.currentTok.span
             ]
         } else if (tok.type == "Keyword" && tok.value == "if") {
             this.advance()

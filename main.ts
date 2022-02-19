@@ -19,6 +19,7 @@ compile(`
 let n = 9+10*2;
 let name = "Am" & "ee" & "r";
 let x = (if true then 1 else 4)+4;
-n+1;
+let f = \\x -> \\y -> x+y;
 "My name is " & name;
+f 1 n;
 `)
