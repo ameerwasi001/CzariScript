@@ -65,12 +65,13 @@ class Parser {
         return left
     }
 
-    parseSeperated<A>(sep: string, start: string | null, end: string, parser: () => A){
+    parseSeperated<A>(sep: string, start: string | null, end: string, parser: () => A, postStart = () => {}){
         if(start != null && this.currentTok.type != start) throw SpannedError.new1(
             `Syntax Error: Unexpected token ${this.currentTok.type}, expected 'then'`,
             this.currentTok.span
         )
         if(start != null) this.advance()
+        postStart()
         const ls: A[] = []
         if(this.currentTok.type == end) 
         {
@@ -94,6 +95,7 @@ class Parser {
 
     parseRecord(): Spanned<Expr> {
         const span = this.currentTok.span
+        let prototype: Expr | null = null
         const fields = this.parseSeperated(
             "Comma",
             "OpenBrace",
@@ -112,9 +114,19 @@ class Parser {
                 this.advance()
                 const expr = this.expr()
                 return [[tok.value, tok.span], expr[0]]
+            },
+            () => {
+                const index = this.index
+                const expr = this.expr()
+                if(this.currentTok.type == "Keyword" && this.currentTok.value == "with") {
+                    this.advance()
+                    prototype = expr[0]
+                    return
+                }
+                this.revert(index)
             }
         )
-        return [{type: "Record", fields: [null, fields, span]}, span]
+        return [{type: "Record", fields: [prototype, fields, span]}, span]
     }
 
     parse(){

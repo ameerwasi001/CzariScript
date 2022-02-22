@@ -21,8 +21,11 @@ let name = "Am" & "ee" & "r";
 let x = (if true then 1 else 4)+4;
 let f = \\x y -> if y = null then x else x & y;
 let fac = \\n -> if n < 2 then 1 else n*fac(n-1);
+let access = \\obj -> obj.x.y.z;
 f "My name is " name;
 f "a" null;
 fac 10;
-{x : {y: 2}, z : "h"}.x.y
+let obj = {x: {y: {z: 4}}};
+access {obj with s: "h", m: 3};
+access {x: {y: {z: 4}, text: "No!"}};
 `)
