@@ -63,23 +63,24 @@ class SpanManager {
         assert_lte(l, r)
         let lineNo = 0
         let charNo = 0
-        let col = 0
-        let b = true
+        let col = l == r ? 0 : -1
+        let found = true
         const lines = []
         for(const line of trim(source.split("\n"))) {
-            if(b) lineNo += 1
+            if(found) lineNo += 1
             const origChanNo = charNo
             charNo += line.length+1
-            if (charNo >= l && b) {
+            if (charNo >= l && found) {
                 lines.push(line + "\n")
-                col = l - origChanNo - 1
-                b = false
+                col += l - origChanNo
+                found = false
             }
         }
         out += `In line no: ${lineNo.toString()}, on coulmn ${col.toString()}\n`
         out += lines.join("\n")
         out += " ".repeat(col)
-        out += "^\n"
+        out += "^"
+        if(r-l != 0) out += "_".repeat(r-l-1) + "\n"
         return out
     }
 }

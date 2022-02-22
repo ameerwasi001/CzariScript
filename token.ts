@@ -34,7 +34,6 @@ type Token =
     | {type: "Constructor", value: string, span: Span}
     | {type: "Keyword", value: string, span: Span}
     | {type: "Newline", span: Span}
-    | {type: "Equals", span: Span}
     | {type: "Lambda", span: Span}
     | {type: "Arrow", span: Span}
     | {type: "OpenParen", span: Span}

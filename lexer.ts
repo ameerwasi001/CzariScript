@@ -191,7 +191,7 @@ class Lexer {
         [
             (self: Lexer) => self.matches("="),
             (self: Lexer) => self.advanceValue(
-                {type: "Equals", span: self.spanSingle()}
+                {type: "Op", op: "Eq", opType: "AnyCmp", span: self.spanSingle()}
             )
         ],
         [

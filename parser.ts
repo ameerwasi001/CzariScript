@@ -3,7 +3,7 @@ import { Token, Op } from "./token.ts"
 import { Span, Spanned, SpannedError } from "./spans.ts"
 import { TopLevel } from "./ast.ts"
 
-function buildList(atoms: Spanned<Expr>[]) {
+const buildCall = (atoms: Spanned<Expr>[]) => {
     if (atoms[atoms.length-1]==undefined) throw "Impossible!"
     if (atoms[0]==undefined) throw "Impossible!"
     if (atoms[1]==undefined) throw "Impossible!"
@@ -14,6 +14,14 @@ function buildList(atoms: Spanned<Expr>[]) {
         i++
     }
     return call
+}
+
+const makeFunc = (ids: [string, Span][], expr: Spanned<Expr>): Spanned<Expr> => {
+    let func = expr
+    for(const [id, span] of ids.slice().reverse()){
+        func = [{type: "FuncDef", fields: [[{type: "Var", val: id}, func[0]], span]}, span]
+    }
+    return func
 }
 
 class Parser {
@@ -101,8 +109,12 @@ class Parser {
                     )
                     const ident = tok.value
                     this.advance()
-                    if(this.currentTok.type != "Equals") throw SpannedError.new1(
-                        `Expected identifier, got ${this.currentTok.type}`,
+                    if(this.currentTok.type != "Op") throw SpannedError.new1(
+                        `Expected '=', got ${this.currentTok.type}`,
+                        this.currentTok.span
+                    )
+                    if(this.currentTok.op != "Eq") throw SpannedError.new1(
+                        `Expected '=', got ${this.currentTok.type}`,
                         this.currentTok.span
                     )
                     this.advance()
@@ -130,6 +142,10 @@ class Parser {
     }
 
     expr(){
+        return this.binOp(() => this.arithExpr(), new Set(["Lt", "Lte", "Gt", "Gte", "Eq", "Neq"]), () => this.arithExpr())
+    }
+
+    arithExpr(){
         return this.binOp(() => this.term(), new Set(["Add", "Sub"]), () => this.term())
     }
 
@@ -150,8 +166,7 @@ class Parser {
             }
         }
         if(atoms.length < 2) return atoms[0]
-        return buildList(atoms)
-        // throw "Shit!" 
+        return buildCall(atoms)
     }
 
     atom(): Spanned<Expr> {
@@ -169,24 +184,29 @@ class Parser {
                 tok.span
             ]
         } else if (tok.type == "Lambda"){
+            const idents: [string, Span][] = []
             this.advance()
-            const currTok = this.currentTok
+            let currTok = this.currentTok
             if(currTok.type != "Variable") throw SpannedError.new1(
                 `Syntax Error: Unexpected token ${tok.type}, expected an IDENTIFIER`,
                 this.currentTok.span
             )
-            const ident = currTok.value
-            this.advance()
+            while(currTok.type == "Variable") {
+                idents.push([currTok.value, currTok.span])
+                this.advance()
+                currTok = this.currentTok
+            }
             if(this.currentTok.type != "Arrow") throw SpannedError.new1(
                 `Syntax Error: Unexpected token ${tok.type}, expected an -> token`,
                 this.currentTok.span
             )
             this.advance()
             const expr = this.expr()
-            return [
-                {type: "FuncDef", fields: [[{type: "Var", val: ident}, expr[0]], this.currentTok.span]}, 
+            if (idents.length == 1) return [
+                {type: "FuncDef", fields: [[{type: "Var", val: idents[0][0]}, expr[0]], this.currentTok.span]}, 
                 this.currentTok.span
             ]
+            return makeFunc(idents, expr)
         } else if (tok.type == "Keyword" && tok.value == "if") {
             this.advance()
             const condExpr = this.expr()
@@ -212,8 +232,7 @@ class Parser {
             )
             this.advance()
             return expr
-        }
-        throw SpannedError.new1(`Syntax Error: Unexpected token ${tok.type}`, tok.span)
+        } else throw SpannedError.new1(`Syntax Error: Unexpected token ${tok.type}`, tok.span)
     }
 }
 

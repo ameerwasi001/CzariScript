@@ -19,7 +19,9 @@ compile(`
 let n = 9+10*2;
 let name = "Am" & "ee" & "r";
 let x = (if true then 1 else 4)+4;
-let f = \\x -> \\y -> x+y;
-"My name is " & name;
-f 1 n;
+let f = \\x y -> if y = null then x else x & y;
+let fac = \\n -> if n < 2 then 1 else n*fac(n-1);
+f "My name is " name;
+f "a" null;
+fac 10;
 `)
