@@ -195,6 +195,18 @@ class Lexer {
             )
         ],
         [
+            (self: Lexer) => self.matches(":"),
+            (self: Lexer) => self.advanceValue(
+                {type: "Colon", span: self.spanSingle()}
+            )
+        ],
+        [
+            (self: Lexer) => self.matches("."),
+            (self: Lexer) => self.advanceValue(
+                {type: "Dot", span: self.spanSingle()}
+            )
+        ],
+        [
             (self: Lexer) => DIGITS.has(self.currentChar), 
             (self: Lexer) => {
                 const starter = this.index

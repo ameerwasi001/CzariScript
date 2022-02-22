@@ -24,6 +24,14 @@ const makeFunc = (ids: [string, Span][], expr: Spanned<Expr>): Spanned<Expr> => 
     return func
 }
 
+const makeAccess = (ids: [string, Span][], expr: Spanned<Expr>) => {
+    let access = expr
+    for(const [id, span] of ids){
+        access = [{type: "FieldAccess", fields: [access[0], id, span]}, span]
+    }
+    return access
+}
+
 class Parser {
     index: number
     currentTok: Token
@@ -62,6 +70,7 @@ class Parser {
             `Syntax Error: Unexpected token ${this.currentTok.type}, expected 'then'`,
             this.currentTok.span
         )
+        if(start != null) this.advance()
         const ls: A[] = []
         if(this.currentTok.type == end) 
         {
@@ -79,7 +88,33 @@ class Parser {
             `Expected an 'end' token, got ${this.currentTok.type}`,
             this.currentTok.span
         )
+        this.advance()
         return ls
+    }
+
+    parseRecord(): Spanned<Expr> {
+        const span = this.currentTok.span
+        const fields = this.parseSeperated(
+            "Comma",
+            "OpenBrace",
+            "CloseBrace",
+            (): [Spanned<string>, Expr] => {
+                const tok = this.currentTok
+                if(tok.type != "Variable") throw SpannedError.new1(
+                    `Expected identifier, got ${this.currentTok.type}`,
+                    this.currentTok.span
+                )
+                this.advance()
+                if(this.currentTok.type != "Colon") throw SpannedError.new1(
+                    `Expected ':', got ${this.currentTok.type}`,
+                    this.currentTok.span
+                )
+                this.advance()
+                const expr = this.expr()
+                return [[tok.value, tok.span], expr[0]]
+            }
+        )
+        return [{type: "Record", fields: [null, fields, span]}, span]
     }
 
     parse(){
@@ -154,7 +189,7 @@ class Parser {
     }
 
     factor(): Spanned<Expr> {
-        const atoms = [this.atom()]
+        const atoms = [this.access()]
         while(true){
             const index = this.index
             try {
@@ -167,6 +202,24 @@ class Parser {
         }
         if(atoms.length < 2) return atoms[0]
         return buildCall(atoms)
+    }
+
+    access(): Spanned<Expr> {
+        const accesses: [string, Span][] = []
+        const atom = this.atom()
+        let tok = this.currentTok
+        while(tok.type == "Dot"){
+            this.advance()
+            if(this.currentTok.type != "Variable") throw SpannedError.new1(
+                `Syntax Error: Unexpected token ${tok.type}, expected Identifier`,
+                this.currentTok.span
+            )
+            accesses.push([this.currentTok.value, this.currentTok.span])
+            this.advance()
+            tok = this.currentTok
+        }
+        if(accesses.length == 0) return atom
+        return makeAccess(accesses, atom)
     }
 
     atom(): Spanned<Expr> {
@@ -232,7 +285,8 @@ class Parser {
             )
             this.advance()
             return expr
-        } else throw SpannedError.new1(`Syntax Error: Unexpected token ${tok.type}`, tok.span)
+        } else if(tok.type == "OpenBrace") return this.parseRecord()
+        else throw SpannedError.new1(`Syntax Error: Unexpected token ${tok.type}`, tok.span)
     }
 }
 
