@@ -76,7 +76,7 @@ class SpanManager {
                 found = false
             }
         }
-        out += `In line no: ${lineNo.toString()}, on coulmn ${col.toString()}\n`
+        out += `In line no: ${lineNo.toString()}, on coulmn ${(col+1).toString()}\n`
         out += lines.join("\n")
         out += " ".repeat(col)
         out += "^"

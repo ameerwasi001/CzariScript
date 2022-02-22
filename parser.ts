@@ -147,27 +147,16 @@ class Parser {
             "Eof", 
             () => {
                 const tok = this.currentTok
-                if(tok.type == "Keyword" && tok.value == "let") {
+                if(tok.type == "Variable") {
+                    const index = this.index
                     this.advance()
-                    const tok = this.currentTok
-                    if(tok.type != "Variable") throw SpannedError.new1(
-                        `Expected identifier, got ${this.currentTok.type}`,
-                        this.currentTok.span
-                    )
-                    const ident = tok.value
-                    this.advance()
-                    if(this.currentTok.type != "Op") throw SpannedError.new1(
-                        `Expected '=', got ${this.currentTok.type}`,
-                        this.currentTok.span
-                    )
-                    if(this.currentTok.op != "Eq") throw SpannedError.new1(
-                        `Expected '=', got ${this.currentTok.type}`,
-                        this.currentTok.span
-                    )
-                    this.advance()
-                    const expr = this.expr()
-                    return {type: "Left", ident, val: expr[0]}
-                } else return {type: "Right", val: this.expr()[0]}
+                    if(this.currentTok.type == "Op" && this.currentTok.op == "Eq") {
+                        this.advance()
+                        const expr = this.expr()
+                        return {type: "Left", ident: tok.value, val: expr[0]}
+                    } else this.revert(index)
+                }
+                return {type: "Right", val: this.expr()[0]}
             }
         )
 
