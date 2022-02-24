@@ -180,12 +180,28 @@ class Parser {
                 () => {
                     const tok = this.currentTok
                     if(tok.type == "Variable") {
+                        const names: [string, Span][] = []
                         const index = this.index
                         this.advance()
+                        while(this.currentTok.type == "Variable") {
+                            names.push([this.currentTok.value, this.currentTok.span])
+                            this.advance()
+                        }
                         if(this.currentTok.type == "Op" && this.currentTok.op == "Eq") {
                             this.advance()
                             const expr = this.expr()
-                            return {type: "Left", ident: tok.value, val: expr[0], span: this.currentTok.span}
+                            if(names.length > 0) return {
+                                type: "Left", 
+                                ident: tok.value, 
+                                val: makeFunc(names, expr)[0], 
+                                span: this.currentTok.span
+                            }
+                            else return {
+                                type: "Left", 
+                                ident: tok.value, 
+                                val: expr[0], 
+                                span: this.currentTok.span
+                            }
                         } else this.revert(index)
                     }
                     return {type: "Right", val: this.expr()[0], span: this.currentTok.span}
