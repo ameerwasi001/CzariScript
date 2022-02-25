@@ -54,13 +54,23 @@ class Parser {
         this.currentTok = this.index > this.toks.length ? this.toks[this.toks.length - 1] : this.toks[this.index]
     }
 
-    binOp(func_a: () => Spanned<Expr>, ops: Set<Op>, func_b: () => Spanned<Expr>) {
+    binOp(
+        func_a: () => Spanned<Expr>, 
+        ops: Set<Op>, 
+        func_b: () => Spanned<Expr>, 
+        toks: Set<string> = new Set(),
+        build = (_1: Spanned<Expr>, [_, span]: Spanned<Expr>): Spanned<Expr> => {
+            return [{type: "Literal", fields: ["Null", ["null", span]]}, span]
+        }
+    ){
         let left = func_a()
-        while (this.currentTok.type == "Op" && ops.has(this.currentTok.op)){
+        while ((this.currentTok.type == "Op" && ops.has(this.currentTok.op)) || toks.has(this.currentTok.type)){
             const opTok = this.currentTok
             this.advance()
             const right = func_b()
-            left = [{type: "BinOp", fields: [left, right, opTok.opType, opTok.op, opTok.span]}, opTok.span]
+            if(opTok.type == "Op" && ops.has(opTok.op)) {
+                left = [{type: "BinOp", fields: [left, right, opTok.opType, opTok.op, opTok.span]}, opTok.span]
+            } else left = build(left, right)
         }
         return left
     }
@@ -273,12 +283,22 @@ class Parser {
 
     expr(){
         const bin = this.binOp(
+            () => this.compExpr(), 
+            new Set(), 
+            () => this.compExpr(),
+            new Set(["Assign"]),
+            (left, right) => { return [{type: "RefSet", fields: [left, right[0]]}, right[1]] }
+        )
+        if(this.currentTok.type == "Keyword" && this.currentTok.value == "where") return this.parseWhereBlock(bin)
+        return bin
+    }
+
+    compExpr(){
+        return this.binOp(
             () => this.arithExpr(), 
             new Set(["Lt", "Lte", "Gt", "Gte", "Eq", "Neq"]), 
             () => this.arithExpr()
         )
-        if(this.currentTok.type == "Keyword" && this.currentTok.value == "where") return this.parseWhereBlock(bin)
-        return bin
     }
 
     arithExpr(){
@@ -319,25 +339,30 @@ class Parser {
             this.advance()
             tok = this.currentTok
         }
-        if(accesses.length == 0) return atom
-        return makeExprList<Expr>(
+        const expr = accesses.length == 0 ? atom : makeExprList<Expr>(
             accesses, 
             atom, 
             (id: string, expr: Expr, span: Span): Expr => { return {type: "FieldAccess", fields: [expr, id, span]} }
         )
+        if(this.currentTok.type == "Circumflex") {
+            const tok = this.currentTok
+            this.advance()
+            return [{type: "RefGet", field: expr}, tok.span]
+        } else return expr
     }
 
     atom(): Spanned<Expr> {
         const tok = this.currentTok
+        let val: Spanned<Expr>
         if (tok.type == "Literal") {
             this.advance()
-            return [
+            val = [
                 {type: "Literal", fields: [tok.literalType, [tok.value, tok.span]]},
                 tok.span
             ]
         } else if (tok.type == "Variable") {
             this.advance()
-            return [
+            val = [
                 {type: "Variable", field: [tok.value, tok.span]}, 
                 tok.span
             ]
@@ -364,7 +389,7 @@ class Parser {
                 {type: "FuncDef", fields: [[{type: "Var", val: idents[0][0]}, expr[0]], this.currentTok.span]}, 
                 this.currentTok.span
             ]
-            return makeFunc(idents, expr)
+            val = makeFunc(idents, expr)
         } else if (tok.type == "Keyword" && tok.value == "if") {
             this.advance()
             const condExpr = this.expr()
@@ -380,7 +405,7 @@ class Parser {
             )
             this.advance()
             const elseExpr = this.expr()
-            return [{type: "If", fields: [condExpr, thenExpr[0], elseExpr[0]]}, tok.span]
+            val = [{type: "If", fields: [condExpr, thenExpr[0], elseExpr[0]]}, tok.span]
         } else if (tok.type == "OpenParen") {
             this.advance()
             const expr = this.expr()
@@ -389,11 +414,19 @@ class Parser {
                 this.currentTok.span
             )
             this.advance()
-            return expr
-        } else if(tok.type == "OpenBrace") return this.parseRecord()
-        else if(this.currentTok.type == "Keyword" && this.currentTok.value == "let") return this.parseLet()
-        else if(this.currentTok.type == "Keyword" && this.currentTok.value == "do") return this.parseDoBlock()
+            val = expr
+        }
+        else if(tok.type == "At") {
+            this.advance()
+            const [expr, span] = this.factor()
+            val = [{type: "NewRef", fields: [expr, span]}, span]
+        }
+        else if(tok.type == "OpenBrace") return this.parseRecord()
+        else if(this.currentTok.type == "Keyword" && this.currentTok.value == "let") val = this.parseLet()
+        else if(this.currentTok.type == "Keyword" && this.currentTok.value == "do") val = this.parseDoBlock()
         else throw SpannedError.new1(`Syntax Error: Unexpected token ${tok.type}`, tok.span)
+
+        return val
     }
 }
 

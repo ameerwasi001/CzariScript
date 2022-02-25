@@ -47,6 +47,37 @@ class Lexer {
             }
         ],
         [
+            (self: Lexer) => {
+                const index = self.index
+                const char = self.currentChar
+                if(char != "^") {
+                    this.revert(index)
+                    return false
+                }
+                self.advance()
+                while(self.currentChar == " " || self.currentChar == "\n" || self.currentChar == "\t") self.advance()
+                if(self.currentChar != "=") {
+                    this.revert(index)
+                    return false
+                }
+                this.revert(index)
+                return true
+            },
+            (self: Lexer) => {
+                const a = self.index
+                self.advance()
+                while(self.currentChar == " " || self.currentChar == "\n" || self.currentChar == "\t") self.advance()
+                self.advance()
+                return self.advanceValue({type: "Assign", span: self.span(a, self.index)})
+            }
+        ],
+        [
+            (self: Lexer) => self.matches("^"), 
+            (self: Lexer) => self.advanceValue(
+                {type: "Circumflex", span: self.spanSingle()
+            })
+        ],
+        [
             (self: Lexer) => self.matches(">="), 
             (self: Lexer) => {
                 const a = self.index
@@ -192,6 +223,12 @@ class Lexer {
             (self: Lexer) => self.matches("="),
             (self: Lexer) => self.advanceValue(
                 {type: "Op", op: "Eq", opType: "AnyCmp", span: self.spanSingle()}
+            )
+        ],
+        [
+            (self: Lexer) => self.matches("@"),
+            (self: Lexer) => self.advanceValue(
+                {type: "At", span: self.spanSingle()}
             )
         ],
         [

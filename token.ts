@@ -38,6 +38,9 @@ type Token =
     | {type: "Dot", span: Span}
     | {type: "Lambda", span: Span}
     | {type: "Arrow", span: Span}
+    | {type: "At", span: Span}
+    | {type: "Assign", span: Span}
+    | {type: "Circumflex", span: Span}
     | {type: "OpenParen", span: Span}
     | {type: "CloseParen", span: Span}
     | {type: "OpenBrace", span: Span}

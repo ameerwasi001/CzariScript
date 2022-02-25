@@ -22,10 +22,10 @@ x = (if true then 1 else 4)+4;
 f x y = if y = null then x else x & y;
 fac = \\n -> if n < 2 then 1 else n*fac(n-1);
 access = \\obj -> do
-        n = obj.x.y.z;
-        nx = n+1;
-        nx*2;
-        fib (nx+5);
+        n = @obj.x.y.z;
+        n^ = obj.x.y.z+1;
+        n^ = n^ * 2;
+        fib (n^+5);
     end where fib n = if n < 2 then 1 else fib(n-1) + fib(n-2) end;
 f "My name is " name;
 f "a" null;
