@@ -79,7 +79,7 @@ class Parser {
         }
         ls.push(parser())
         while(this.currentTok.type == sep){
-            this.advance();
+            while(this.currentTok.type == sep) this.advance();
             if(ends()) break
             ls.push(parser());
         }
@@ -191,15 +191,15 @@ class Parser {
                             this.advance()
                             const expr = this.expr()
                             if(names.length > 0) return {
-                                type: "Left", 
-                                ident: tok.value, 
-                                val: makeFunc(names, expr)[0], 
+                                type: "Left",
+                                ident: tok.value,
+                                val: makeFunc(names, expr)[0],
                                 span: this.currentTok.span
                             }
                             else return {
-                                type: "Left", 
-                                ident: tok.value, 
-                                val: expr[0], 
+                                type: "Left",
+                                ident: tok.value,
+                                val: expr[0],
                                 span: this.currentTok.span
                             }
                         } else this.revert(index)
