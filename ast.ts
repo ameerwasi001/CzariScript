@@ -11,6 +11,7 @@ type MatchPattern =
     {type: "Case", val: [string, string]}
     | {type: "Wildcard", val: string}
 
+
 type Expr = 
     {type: "BinOp", fields: [Spanned<Expr>, Spanned<Expr>, OpType, Op, Span]}
     | {type: "Call", fields: [Expr, Expr, Span]}
@@ -122,5 +123,68 @@ function cloneExpr(expr: Expr): Expr {
     }
 }
 
-export type { Literal, Op, OpType, VarDefinition, LetPattern, MatchPattern, Expr, Readability, TopLevel }
-export { cloneExpr }
+const patternToString = (pat: MatchPattern) => {
+    if(pat.type == "Case") return `${pat.val[0]} ${pat.val[1]}`
+    else return pat.val
+}
+
+function exprToString(expr: Expr): string {
+    if (expr.type == "BinOp") {
+        const [[expr1, _1], [expr2, _2], opType, op, span] = expr.fields
+        return exprToString(expr1) + ` ${op}#${opType} ` + exprToString(expr2)
+    } else if (expr.type == "Call") {
+        const [expr1, expr2, span] = expr.fields
+        return exprToString(expr1) + " " + exprToString(expr2)
+    } else if (expr.type == "Case") {
+        const [[str, _], newExpr] = expr.fields
+        return str + " " + exprToString(newExpr)
+    } else if (expr.type == "FieldAccess") {
+        const [expr1, str, span] = expr.fields
+        return exprToString(expr1) + "." + str
+    } else if (expr.type == "FuncDef") {
+        const [[argPattern, bodyExpr], span] = expr.fields
+        return "let _ = _ in " + exprToString(bodyExpr)
+    } else if (expr.type == "If") {
+        const [[expr1, _], expr2, expr3] = expr.fields
+        return `if ${expr1} then ${expr2} else ${expr3}`
+    } else if (expr.type == "Let") {
+        const [[id, valExpr], expr1] = expr.fields
+        return `let ${id} = ${exprToString(valExpr)} in ${exprToString(expr1)}`
+    } else if (expr.type == "LetRec") {
+        const [varDefinitions, expr1] = expr.fields
+        return "letrec " + varDefinitions.map(([id, val]) => `${id} = ${exprToString(val)}`).join(", ") + " in " + exprToString(expr1)
+    } else if (expr.type == "Literal") {
+        const [_1, [str, _2]] = expr.fields
+        return str
+    } else if (expr.type == "Match") {
+        const [expr1, xs, span] = expr.fields
+        const s = xs.map(([[pat, _], expr]) => "\t" + patternToString(pat) + " -> " + exprToString(expr))
+            .join("\n")
+            .split("\n")
+            .map(x => "\t" + x)
+            .join("\n")
+        return `match ${exprToString(expr1)}\n${s}`
+    } else if (expr.type == "NewRef") {
+        const [expr1, _] = expr.fields
+        return `ref ${expr1}`
+    } else if (expr.type == "Record") {
+        const [maybeExpr, xs, span] = expr.fields
+        const str = xs.map(([[str, _], expr]) => str + ": " + exprToString(expr)).join(", ")
+        return `{${maybeExpr == null ? "" : `${exprToString(maybeExpr)} with `}${str}}`
+    } else if (expr.type == "RefGet") {
+        const [expr1, _] = expr.field
+        return `get ${exprToString(expr1)}`
+    } else if (expr.type == "RefSet") {
+        const [[expr1, span], expr2] = expr.fields
+        return `${exprToString(expr1)} := ${exprToString(expr2)}`
+    } else {
+        return expr.field[0]
+    }
+}
+
+export type { 
+    Literal, Op, OpType, VarDefinition, 
+    LetPattern, MatchPattern, Expr, 
+    Readability, TopLevel 
+}
+export { cloneExpr, exprToString }

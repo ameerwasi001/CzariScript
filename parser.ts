@@ -2,6 +2,7 @@ import { Expr, VarDefinition } from "./ast.ts"
 import { Token, Op } from "./token.ts"
 import { Span, Spanned, SpannedError } from "./spans.ts"
 import { TopLevel } from "./ast.ts"
+import { MatchPattern } from "./ast.ts"
 
 const buildCall = (atoms: Spanned<Expr>[]) => {
     if (atoms[atoms.length-1]==undefined) throw "Impossible!"
@@ -137,24 +138,28 @@ class Parser {
     parseRecord(): Spanned<Expr> {
         const span = this.currentTok.span
         let prototype: Expr | null = null
+        let n = 0
         const fields = this.parseSeperated(
             "Comma",
             "OpenBrace",
             () => this.currentTok.type == "CloseBrace",
             (): [Spanned<string>, Expr] => {
                 const tok = this.currentTok
-                if(tok.type != "Variable") throw SpannedError.new1(
-                    `Expected identifier, got ${this.currentTok.type}`,
-                    this.currentTok.span
-                )
-                this.advance()
-                if(this.currentTok.type != "Colon") throw SpannedError.new1(
-                    `Expected ':', got ${this.currentTok.type}`,
-                    this.currentTok.span
-                )
-                this.advance()
-                const expr = this.expr()
-                return [[tok.value, tok.span], expr[0]]
+                const index = this.index
+                if(tok.type == "Variable") {
+                    this.advance()
+                    if(this.currentTok.type == "Colon") {
+                        if(n>0) throw SpannedError.new1(
+                            `Cannot have numerically indexed fields mixed with named fields`,
+                            this.currentTok.span
+                        )
+                        this.advance()
+                        const expr = this.expr()
+                        return [[tok.value, tok.span], expr[0]]
+                    } else this.revert(index)
+                }
+                const [expr, span] = this.expr()
+                return [[`${n++}`, span], expr]
             },
             () => {
                 const index = this.index
@@ -331,7 +336,10 @@ class Parser {
         let tok = this.currentTok
         while(tok.type == "Dot"){
             this.advance()
-            if(this.currentTok.type != "Variable") throw SpannedError.new1(
+            if(
+                this.currentTok.type != "Variable" && 
+                !(this.currentTok.type == "Literal" && this.currentTok.literalType == "Int")
+            ) throw SpannedError.new1(
                 `Syntax Error: Unexpected token ${tok.type}, expected Identifier`,
                 this.currentTok.span
             )

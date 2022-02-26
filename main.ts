@@ -22,7 +22,7 @@ x = (if true then 1 else 4)+4;
 f x y = if y = null then x else x & y;
 fac = \\n -> if n < 2 then 1 else n*fac(n-1);
 access = \\obj -> do
-        n = @obj.x.y.z;
+        n = @obj.x.y.0;
         n^ = n^+1;
         n^ = n^ * 2;
         fib (n^+5);
@@ -30,8 +30,8 @@ access = \\obj -> do
 f "My name is " name;
 f "a" null;
 fac 10;
-obj = {x: {y: {z: 4}}};
+obj = {x: {y: {4, "ABC"}}};
 access {obj with s: "h", m: 3};
-access {x: {y: {z: 4}, text: "No!"}} + 4;
+access {x: {y: {4, 7, "XYZ"}, text: "No!"}} + 4;
 CaseExample' obj;
 `)
