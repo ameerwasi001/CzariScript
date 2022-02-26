@@ -416,6 +416,11 @@ class Parser {
             this.advance()
             val = expr
         }
+        else if(tok.type == "Constructor") {
+            this.advance()
+            const [expr, _] = this.expr()
+            return [{type: "Case", fields: [[tok.value, tok.span], expr]}, tok.span]
+        }
         else if(tok.type == "At") {
             this.advance()
             const [expr, span] = this.factor()

@@ -260,7 +260,7 @@ class Lexer {
             (self: Lexer) => {
                 const starter = this.index
                 let str = ""
-                while(LOWER_ALPHAS.has(self.currentChar) || UPPER_ALPHAS.has(self.currentChar) || DIGITS.has(self.currentChar))  {
+                while(ALPHAS.has(self.currentChar) || DIGITS.has(self.currentChar) || self.currentChar == "'")  {
                     str += self.currentChar
                     self.advance()
                 }
@@ -275,7 +275,7 @@ class Lexer {
             (self: Lexer) => {
                 const starter = this.index
                 let str = ""
-                while(LOWER_ALPHAS.has(self.currentChar) || UPPER_ALPHAS.has(self.currentChar) || DIGITS.has(self.currentChar))  {
+                while(ALPHAS.has(self.currentChar) || DIGITS.has(self.currentChar) || self.currentChar == "'")  {
                     str += self.currentChar
                     self.advance()
                 }
