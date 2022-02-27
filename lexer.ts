@@ -244,6 +244,12 @@ class Lexer {
             )
         ],
         [
+            (self: Lexer) => self.matches("|"),
+            (self: Lexer) => self.advanceValue(
+                {type: "Or", span: self.spanSingle()}
+            )
+        ],
+        [
             (self: Lexer) => DIGITS.has(self.currentChar), 
             (self: Lexer) => {
                 const starter = this.index

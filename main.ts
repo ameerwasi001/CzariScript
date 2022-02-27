@@ -33,5 +33,10 @@ fac 10;
 obj = {x: {y: {4, "ABC"}}};
 access {obj with s: "h", m: 3};
 access {x: {y: {4, 7, "XYZ"}, text: "No!"}} + 4;
-CaseExample' obj;
+caseBase n = 
+    match n with
+    | CaseExample' x -> x.str
+    | Z x -> x*2
+    end;
+caseBase (CaseExample' {obj with str: name});
 `)

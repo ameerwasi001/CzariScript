@@ -286,6 +286,62 @@ class Parser {
         return expressions
     }
 
+    parsePattern(): Spanned<MatchPattern> {
+        const tok = this.currentTok
+        if(tok.type == "Constructor") {
+            const ctor = tok.value
+            this.advance()
+            if(this.currentTok.type != "Variable") throw SpannedError.new1(
+                "Syntax Error: Expected a variable",
+                this.currentTok.span
+            )
+            const ident = this.currentTok.value
+            this.advance()
+            return [{type: "Case", val: [ctor, ident]}, tok.span]
+        } else if(tok.type == "Variable") {
+            const ident = tok.value
+            this.advance()
+            return [{type: "Wildcard", val: ident}, tok.span]
+        }
+        throw SpannedError.new1(
+            `Syntax Error: Expected either an identifier or a constructor, got '${this.currentTok.type}'`,
+            this.currentTok.span
+        )
+    }
+
+    parseMatch(): Spanned<Expr> {
+        this.advance()
+        const [expr, span] = this.expr()
+        const tok = this.currentTok
+        if(tok.type != "Keyword") throw SpannedError.new1(
+            `Syntax Error: Expected 'with', got ${this.currentTok.type}`,
+            tok.span
+        )
+        if(tok.value != "with") throw SpannedError.new1(
+            `Syntax Error: Expected 'with', got ${this.currentTok.type}`,
+            tok.span
+        )
+        this.advance()
+        while(this.currentTok.type == "Newline") this.advance()
+        const cases = this.parseSeperated(
+            "Or",
+            null,
+            () => this.currentTok.type == "Keyword" && this.currentTok.value == "end",
+            (): [Spanned<MatchPattern>, Expr] => {
+                if(this.currentTok.type == "Or") this.advance()
+                const [pat, patSpan] = this.parsePattern()
+                if(this.currentTok.type != "Arrow") throw SpannedError.new1(
+                    `Syntax Error: Expected '->', got ${this.currentTok.type}`,
+                    this.currentTok.span
+                )
+                this.advance()
+                const [expr, _] = this.expr()
+                return [[pat, patSpan], expr]
+            }
+        )
+        return [{type: "Match", fields: [expr, cases, span]}, span]
+    }
+
     expr(){
         const bin = this.binOp(
             () => this.compExpr(), 
@@ -437,6 +493,7 @@ class Parser {
         else if(tok.type == "OpenBrace") return this.parseRecord()
         else if(this.currentTok.type == "Keyword" && this.currentTok.value == "let") val = this.parseLet()
         else if(this.currentTok.type == "Keyword" && this.currentTok.value == "do") val = this.parseDoBlock()
+        else if(this.currentTok.type == "Keyword" && this.currentTok.value == "match") val = this.parseMatch()
         else throw SpannedError.new1(`Syntax Error: Unexpected token ${tok.type}`, tok.span)
 
         return val

@@ -45,6 +45,7 @@ type Token =
     | {type: "CloseParen", span: Span}
     | {type: "OpenBrace", span: Span}
     | {type: "CloseBrace", span: Span}
+    | {type: "Or", span: Span}
     | {type: "Comma", span: Span}
     | {type: "Eof", span: Span}
 
@@ -56,10 +57,11 @@ type Keyword =
     | "in"
     | "with"
     | "do"
+    | "match"
     | "where"
     | "end"
 
-const keywords = new Set(["if", "then", "else", "let", "in", "with", "do", "where", "end"])
+const keywords = new Set(["if", "then", "else", "let", "in", "with", "do", "match", "where", "end"])
 
 export type { Keyword, Token, Literal, Op, OpType }
 export { keywords }
