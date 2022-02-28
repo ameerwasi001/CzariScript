@@ -135,7 +135,6 @@ class SpannedError {
             out += msg
             out += "\n"
             out += sm.print(span)
-            // console.log(msg, "\n", sm.print(span), " == ", out)
         }
         return out
     }

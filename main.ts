@@ -5,8 +5,8 @@ import { TypeckState } from "./typeCheck.ts"
 const compile = (source: string) => {
     const lexer = new Lexer(source)
     const spanManager = lexer.spanManager
-    const toks = lexer.lex()
     try {
+        const toks = lexer.lex()
         const exprs = new Parser(toks).parseTopLevel()
         new TypeckState().checkScript(exprs)
         return exprs
@@ -33,10 +33,10 @@ fac 10;
 obj = {x: {y: {4, "ABC"}}};
 access {obj with s: "h", m: 3};
 access {x: {y: {4, 7, "XYZ"}, text: "No!"}} + 4;
-caseBase n = 
-    match n with
-    | CaseExample' x -> x.str
-    | Z x -> x*2
+area shape = 
+    match shape with
+    | Square {n: n} -> n*n
+    | Circle cir -> 3.14 .* cir.r .* cir.r
     end;
-caseBase (CaseExample' {obj with str: name});
+area (Square {obj with n: n});
 `)

@@ -2,7 +2,7 @@ import { Expr, VarDefinition } from "./ast.ts"
 import { Token, Op } from "./token.ts"
 import { Span, Spanned, SpannedError } from "./spans.ts"
 import { TopLevel } from "./ast.ts"
-import { MatchPattern } from "./ast.ts"
+import { LetPattern, MatchPattern } from "./ast.ts"
 
 const buildCall = (atoms: Spanned<Expr>[]) => {
     if (atoms[atoms.length-1]==undefined) throw "Impossible!"
@@ -286,22 +286,67 @@ class Parser {
         return expressions
     }
 
-    parsePattern(): Spanned<MatchPattern> {
+    parseLetPattern(): Spanned<LetPattern> {
+        if(this.currentTok.type == "Variable") {
+            const tok = this.currentTok
+            this.advance()
+            return [{type: "Var", val: tok.value}, tok.span]
+        } else if(this.currentTok.type == "OpenBrace") {
+            const span = this.currentTok.span
+            let n = 0
+            const fields = this.parseSeperated(
+                "Comma",
+                "OpenBrace",
+                () => this.currentTok.type == "CloseBrace",
+                (): [Spanned<string>, LetPattern] => {
+                    const tok = this.currentTok
+                    const index = this.index
+                    if(tok.type == "Variable") {
+                        this.advance()
+                        if(this.currentTok.type == "Colon") {
+                            if(n>0) throw SpannedError.new1(
+                                `Cannot have numerically indexed fields mixed with named fields`,
+                                this.currentTok.span
+                            )
+                            this.advance()
+                            const pat = this.parseLetPattern()
+                            return [[tok.value, tok.span], pat[0]]
+                        } else this.revert(index)
+                    }
+                    const [pat, span] = this.parseLetPattern()
+                    return [[`${n++}`, span], pat]
+                }
+            )
+            return [{type: "Record", val: fields}, span]
+        }
+        throw SpannedError.new1(
+            "Syntax Error: Expected either a '{' or an identifier",
+            this.currentTok.span
+        )
+    }
+
+    parsePattern(i: number): [Spanned<MatchPattern>, (_: Expr) => Expr] {
         const tok = this.currentTok
         if(tok.type == "Constructor") {
             const ctor = tok.value
             this.advance()
-            if(this.currentTok.type != "Variable") throw SpannedError.new1(
-                "Syntax Error: Expected a variable",
+            if(this.currentTok.type != "Variable" && this.currentTok.type != "OpenBrace") throw SpannedError.new1(
+                "Syntax Error: Expected a variable or a '{'",
                 this.currentTok.span
             )
-            const ident = this.currentTok.value
-            this.advance()
-            return [{type: "Case", val: [ctor, ident]}, tok.span]
+            if(this.currentTok.type == "Variable") {
+                const ident = this.currentTok.value
+                this.advance()
+                return [[{type: "Case", val: [ctor, ident]}, tok.span], (a: Expr) => a]
+            } else {
+                const [pat, span] = this.parseLetPattern()
+                const lambdaExpr = (expr: Expr): Expr => { return {type: "FuncDef", fields: [[pat, expr], span]} }
+                return [[{type: "Case", val: [ctor, `__matchVar${i}`]}, tok.span], lambdaExpr]
+            }
         } else if(tok.type == "Variable") {
             const ident = tok.value
             this.advance()
-            return [{type: "Wildcard", val: ident}, tok.span]
+            return [[{type: "Wildcard", val: ident}, tok.span], (a: Expr) => a]
         }
         throw SpannedError.new1(
             `Syntax Error: Expected either an identifier or a constructor, got '${this.currentTok.type}'`,
@@ -323,20 +368,21 @@ class Parser {
         )
         this.advance()
         while(this.currentTok.type == "Newline") this.advance()
+        let i = 0
         const cases = this.parseSeperated(
             "Or",
             null,
             () => this.currentTok.type == "Keyword" && this.currentTok.value == "end",
             (): [Spanned<MatchPattern>, Expr] => {
                 if(this.currentTok.type == "Or") this.advance()
-                const [pat, patSpan] = this.parsePattern()
+                const [[pat, patSpan], f] = this.parsePattern(i++)
                 if(this.currentTok.type != "Arrow") throw SpannedError.new1(
                     `Syntax Error: Expected '->', got ${this.currentTok.type}`,
                     this.currentTok.span
                 )
                 this.advance()
                 const [expr, _] = this.expr()
-                return [[pat, patSpan], expr]
+                return [[pat, patSpan], f(expr)]
             }
         )
         return [{type: "Match", fields: [expr, cases, span]}, span]
@@ -396,7 +442,7 @@ class Parser {
                 this.currentTok.type != "Variable" && 
                 !(this.currentTok.type == "Literal" && this.currentTok.literalType == "Int")
             ) throw SpannedError.new1(
-                `Syntax Error: Unexpected token ${tok.type}, expected Identifier`,
+                `Syntax Error: Unexpected token ${this.currentTok.type}, expected Identifier`,
                 this.currentTok.span
             )
             accesses.push([this.currentTok.value, this.currentTok.span])

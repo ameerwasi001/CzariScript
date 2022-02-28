@@ -1,4 +1,4 @@
-import { Span, Spanned, SpanMaker, SpanManager } from "./spans.ts"
+import { Span, Spanned, SpannedError, SpanMaker, SpanManager } from "./spans.ts"
 import { assert_array_eq } from "./utils.ts"
 import { Literal, Op, OpType, Token, keywords } from "./token.ts"
 
@@ -31,14 +31,60 @@ class Lexer {
     currentChar: string
     spanManager: SpanManager
     spanMaker: SpanMaker
-    rules: [(self: Lexer) => boolean, (self: Lexer) => Token | null][] = [
+    rules: [string, (self: Lexer) => boolean, (self: Lexer) => Token | null][] = [
         [
+            "FloatAdd",
+            (self: Lexer) => self.matches(".+"), 
+            (self: Lexer) => {
+                const a = self.index
+                self.advance()
+                return self.advanceValue(
+                    {type: "Op", op: "Add", opType: "FloatOp", span: self.span(a, this.index)}
+                )
+            }
+        ],
+        [
+            "FloatSub",
+            (self: Lexer) => self.matches(".-"), 
+            (self: Lexer) => {
+                const a = self.index
+                self.advance()
+                return self.advanceValue(
+                    {type: "Op", op: "Sub", opType: "FloatOp", span: self.span(a, this.index)}
+                )
+            }
+        ],
+        [
+            "FloatMult",
+            (self: Lexer) => self.matches(".*"), 
+            (self: Lexer) => {
+                const a = self.index
+                self.advance()
+                return self.advanceValue(
+                    {type: "Op", op: "Mult", opType: "FloatOp", span: self.span(a, this.index)}
+                )
+            }
+        ],
+        [
+            "FloatDiv",
+            (self: Lexer) => self.matches("./"), 
+            (self: Lexer) => {
+                const a = self.index
+                self.advance()
+                return self.advanceValue(
+                    {type: "Op", op: "Div", opType: "FloatOp", span: self.span(a, this.index)}
+                )
+            }
+        ],
+        [
+            "Ampersand",
             (self: Lexer) => self.matches("&"), 
             (self: Lexer) => self.advanceValue(
                 {type: "Op", op: "Add", opType: "StrOp", span: self.spanSingle()}
             )
         ],
         [
+            "Arrow",
             (self: Lexer) => self.matches("->"), 
             (self: Lexer) => {
                 const a = self.index
@@ -47,6 +93,7 @@ class Lexer {
             }
         ],
         [
+            "Assign",
             (self: Lexer) => {
                 const index = self.index
                 const char = self.currentChar
@@ -72,12 +119,14 @@ class Lexer {
             }
         ],
         [
+            "Circumflex",
             (self: Lexer) => self.matches("^"), 
             (self: Lexer) => self.advanceValue(
                 {type: "Circumflex", span: self.spanSingle()
             })
         ],
         [
+            "Gte",
             (self: Lexer) => self.matches(">="), 
             (self: Lexer) => {
                 const a = self.index
@@ -86,6 +135,7 @@ class Lexer {
             }
         ],
         [
+            "Lte",
             (self: Lexer) => self.matches("<="), 
             (self: Lexer) => {
                 const a = self.index
@@ -94,18 +144,21 @@ class Lexer {
             }
         ],
         [
+            "Lt",
             (self: Lexer) => self.matches("<"), 
             (self: Lexer) => self.advanceValue(
                 {type: "Op", op: "Lt", opType: "IntOrFloatCmp", span: self.spanSingle()}
             )
         ],
         [
+            "Gt",
             (self: Lexer) => self.matches(">"), 
             (self: Lexer) => self.advanceValue(
                 {type: "Op", op: "Gt", opType: "IntOrFloatCmp", span: self.spanSingle()}
             )
         ],
         [
+            "Neq",
             (self: Lexer) => self.matches("!="), 
             (self: Lexer) => {
                 const a = self.index
@@ -114,98 +167,87 @@ class Lexer {
             }
         ],
         [
+            "Add",
             (self: Lexer) => self.matches("+"), 
             (self: Lexer) => self.advanceValue(
                 {type: "Op", op: "Add", opType: "IntOp", span: self.spanSingle()}
             )
         ],
         [
+            "Sub",
             (self: Lexer) => self.matches("-"), 
             (self: Lexer) => self.advanceValue(
                 {type: "Op", op: "Sub", opType: "IntOp", span: self.spanSingle()}
             )
         ],
         [
+            "Mult",
             (self: Lexer) => self.matches("*"), 
             (self: Lexer) => self.advanceValue(
                 {type: "Op", op: "Mult", opType: "IntOp", span: self.spanSingle()}
             )
         ],
         [
+            "Div",
             (self: Lexer) => self.matches("/"), 
             (self: Lexer) => self.advanceValue(
                 {type: "Op", op: "Div", opType: "IntOp", span: self.spanSingle()}
             )
         ],
         [
+            "OpenParen",
             (self: Lexer) => self.matches("("), 
             (self: Lexer) => self.advanceValue(
                 {type: "OpenParen", span: self.spanSingle()}
             )
         ],
         [
+            "CloseParen",
             (self: Lexer) => self.matches(")"), 
             (self: Lexer) => self.advanceValue(
                 {type: "CloseParen", span: self.spanSingle()}
             )
         ],
         [
+            "OpneBrace",
             (self: Lexer) => self.matches("{"), 
             (self: Lexer) => self.advanceValue(
                 {type: "OpenBrace", span: self.spanSingle()}
             )
         ],
         [
+            "CloseBrace",
             (self: Lexer) => self.matches("}"), 
             (self: Lexer) => self.advanceValue(
                 {type: "CloseBrace", span: self.spanSingle()}
             )
         ],
         [
+            "Comma",
             (self: Lexer) => self.matches(","), 
             (self: Lexer) => self.advanceValue(
                 {type: "Comma", span: self.spanSingle()}
             )
         ],
         [
-            (self: Lexer) => self.matches(".+"), 
-            (self: Lexer) => self.advanceValue(
-                {type: "Op", op: "Add", opType: "FloatOp", span: self.spanSingle()}
-            )
-        ],
-        [
-            (self: Lexer) => self.matches(".-"), 
-            (self: Lexer) => self.advanceValue(
-                {type: "Op", op: "Sub", opType: "FloatOp", span: self.spanSingle()}
-            )
-        ],
-        [
-            (self: Lexer) => self.matches(".*"), 
-            (self: Lexer) => self.advanceValue(
-                {type: "Op", op: "Mult", opType: "FloatOp", span: self.spanSingle()}
-            )
-        ],
-        [
-            (self: Lexer) => self.matches("./"), 
-            (self: Lexer) => self.advanceValue(
-                {type: "Op", op: "Div", opType: "FloatOp", span: self.spanSingle()}
-            )
-        ],
-        [
+            "Lambda",
             (self: Lexer) => self.matches("\\"), 
             (self: Lexer) => self.advanceValue(
                 {type: "Lambda", span: self.spanSingle()}
             )
         ],
         [
+            "Whitespace",
             (self: Lexer) => self.matches(" ") || self.matches("\r") || self.matches("\n"), 
             (self: Lexer) => self.advanceValue(null)
         ],
         [
+            "Newline",
             (self: Lexer) => self.matches(";"), 
             (self: Lexer) => self.advanceValue({type: "Newline", span: self.spanSingle()})
         ],
         [
+            "String",
             (self: Lexer) => self.matches("\""),
             (self: Lexer) => {
                 let value = ""
@@ -220,48 +262,60 @@ class Lexer {
             }
         ],
         [
+            "Equals",
             (self: Lexer) => self.matches("="),
             (self: Lexer) => self.advanceValue(
                 {type: "Op", op: "Eq", opType: "AnyCmp", span: self.spanSingle()}
             )
         ],
         [
+            "At",
             (self: Lexer) => self.matches("@"),
             (self: Lexer) => self.advanceValue(
                 {type: "At", span: self.spanSingle()}
             )
         ],
         [
+            "Colon",
             (self: Lexer) => self.matches(":"),
             (self: Lexer) => self.advanceValue(
                 {type: "Colon", span: self.spanSingle()}
             )
         ],
         [
+            "Dot",
             (self: Lexer) => self.matches("."),
             (self: Lexer) => self.advanceValue(
                 {type: "Dot", span: self.spanSingle()}
             )
         ],
         [
+            "Or",
             (self: Lexer) => self.matches("|"),
             (self: Lexer) => self.advanceValue(
                 {type: "Or", span: self.spanSingle()}
             )
         ],
         [
+            "Number",
             (self: Lexer) => DIGITS.has(self.currentChar), 
             (self: Lexer) => {
                 const starter = this.index
                 let str = ""
-                while(DIGITS.has(self.currentChar)) {
+                let dotCount = 0
+                while(DIGITS.has(self.currentChar) || self.currentChar == ".") {
+                    if(dotCount > 1) break
+                    if(self.currentChar == ".") dotCount++
                     str += self.currentChar
                     self.advance()
                 }
-                return {type: "Literal", literalType: "Int", value: str, span: self.span(starter, self.index)}
+                if(dotCount > 0) 
+                    return {type: "Literal", literalType: "Float", value: str, span: self.span(starter, self.index)}
+                else return {type: "Literal", literalType: "Int", value: str, span: self.span(starter, self.index)}
             }
         ],
         [
+            "Ident",
             (self: Lexer) => LOWER_ALPHAS.has(self.currentChar), 
             (self: Lexer) => {
                 const starter = this.index
@@ -277,6 +331,7 @@ class Lexer {
             }
         ],
         [
+            "Ctor",
             (self: Lexer) => UPPER_ALPHAS.has(self.currentChar), 
             (self: Lexer) => {
                 const starter = this.index
@@ -345,17 +400,23 @@ class Lexer {
 
     lex(): Token[] {
         const toks: Token[] = []
+        const rules = this.rules
         while(true) {
             let matched = false
-            for(const [cond, rule] of this.rules) {
+            
+            for(const [_, cond, rule] of rules) {
                 if (cond(this)) {
                     const matchedPart = rule(this)
                     if (matchedPart != null) toks.push(matchedPart)
                     matched = true
+                    break
                 }
                 if (this.currentChar == "") break
             }
-            if (!matched) throw `Expected a token, found '${this.source[this.index]}'\n`
+            if (!matched) throw SpannedError.new1(
+                `Expected a token, found '${this.source[this.index]}'`,
+                this.spanMaker.span(this.index, this.index)
+            )
             if(this.currentChar == "") break
         }
         const lastSpan = toks[toks.length - 1].span
@@ -363,17 +424,5 @@ class Lexer {
         return toks
     }
 }
-
-// const lexer = new Lexer(`
-// let none = null;
-// let t = true;
-// let f = \\x -> x*(22+x)/2.+3;
-// let moreThan10 = \\n -> n > 10;
-// let s = if t then "Hello, I am Ameer" else "";
-// let struct = {a=1, b=2};
-// `)
-// const toks = lexer.lex()
-
-// console.log(toks)
 
 export { Lexer }
