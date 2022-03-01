@@ -17,10 +17,10 @@ const buildCall = (atoms: Spanned<Expr>[]) => {
     return call
 }
 
-const makeFunc = (ids: [string, Span][], expr: Spanned<Expr>): Spanned<Expr> => {
+const makeFunc = (ids: [LetPattern, Span][], expr: Spanned<Expr>): Spanned<Expr> => {
     let func = expr
     for(const [id, span] of ids.slice().reverse()){
-        func = [{type: "FuncDef", fields: [[{type: "Var", val: id}, func[0]], span]}, span]
+        func = [{type: "FuncDef", fields: [[id, func[0]], span]}, span]
     }
     return func
 }
@@ -195,20 +195,26 @@ class Parser {
                 () => {
                     const tok = this.currentTok
                     if(tok.type == "Variable") {
-                        const names: [string, Span][] = []
+                        const patterns: [LetPattern, Span][] = []
                         const index = this.index
                         this.advance()
-                        while(this.currentTok.type == "Variable") {
-                            names.push([this.currentTok.value, this.currentTok.span])
-                            this.advance()
+                        while(this.currentTok.type == "Variable" || this.currentTok.type == "OpenBrace") {
+                            try {
+                                const letPattern = this.parseLetPattern()
+                                patterns.push(letPattern)
+                            } catch (err) {
+                                if(!(err instanceof SpannedError)) throw err
+                                this.revert(index)
+                                break
+                            }
                         }
                         if(this.currentTok.type == "Op" && this.currentTok.op == "Eq") {
                             this.advance()
                             const expr = this.expr()
-                            if(names.length > 0) return {
+                            if(patterns.length > 0) return {
                                 type: "Left",
                                 ident: tok.value,
-                                val: makeFunc(names, expr)[0],
+                                val: makeFunc(patterns, expr)[0],
                                 span: this.currentTok.span
                             }
                             else return {
@@ -477,29 +483,24 @@ class Parser {
                 tok.span
             ]
         } else if (tok.type == "Lambda"){
-            const idents: [string, Span][] = []
+            const patterns: [LetPattern, Span][] = []
             this.advance()
             let currTok = this.currentTok
-            if(currTok.type != "Variable") throw SpannedError.new1(
-                `Syntax Error: Unexpected token ${tok.type}, expected an IDENTIFIER`,
-                this.currentTok.span
-            )
-            while(currTok.type == "Variable") {
-                idents.push([currTok.value, currTok.span])
-                this.advance()
+            while(currTok.type == "Variable" || currTok.type == "OpenBrace") {
+                patterns.push(this.parseLetPattern())
                 currTok = this.currentTok
             }
             if(this.currentTok.type != "Arrow") throw SpannedError.new1(
-                `Syntax Error: Unexpected token ${tok.type}, expected an -> token`,
+                `Syntax Error: Unexpected token ${tok.type}, expected a -> token`,
                 this.currentTok.span
             )
             this.advance()
             const expr = this.expr()
-            if (idents.length == 1) return [
-                {type: "FuncDef", fields: [[{type: "Var", val: idents[0][0]}, expr[0]], this.currentTok.span]}, 
+            if (patterns.length == 1) return [
+                {type: "FuncDef", fields: [[patterns[0][0], expr[0]], this.currentTok.span]}, 
                 this.currentTok.span
             ]
-            val = makeFunc(idents, expr)
+            val = makeFunc(patterns, expr)
         } else if (tok.type == "Keyword" && tok.value == "if") {
             this.advance()
             const condExpr = this.expr()

@@ -21,8 +21,8 @@ name = "Am" & "ee" & "r";
 x = (if true then 1 else 4)+4;
 f x y = if y = null then x else x & y;
 fac = \\n -> if n < 2 then 1 else n*fac(n-1);
-access = \\obj -> do
-        n = @obj.x.y.0;
+access = \\{x: obj} -> do
+        n = @obj.y.0;
         n^ = n^+1;
         n^ = n^ * 2;
         fib (n^+5);
