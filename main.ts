@@ -1,6 +1,7 @@
 import { Lexer } from "./lexer.ts"
 import { Parser } from "./parser.ts"
 import { TypeckState } from "./typeCheck.ts"
+import { topLevelToJs } from "./js.ts"
 
 const compile = (source: string) => {
     const lexer = new Lexer(source)
@@ -9,16 +10,17 @@ const compile = (source: string) => {
         const toks = lexer.lex()
         const exprs = new Parser(toks).parseTopLevel()
         new TypeckState().checkScript(exprs)
-        return exprs
+        return exprs.map(topLevelToJs).map(x => x + ";\n").join("")
     } catch(err) {
+        console.log(err)
         throw err.print(spanManager)
     }
 }
 
-compile(`
+const js = compile(`
 n = 9+10*2;
 name = "Am" & "ee" & "r";
-x = (if true then 1 else 4)+4;
+x = (if n > 2 then 1 else 4)+4;
 f x y = if y = null then x else x & y;
 fac = \\n -> if n < 2 then 1 else n*fac(n-1);
 access = \\{x: obj} -> do
@@ -40,3 +42,5 @@ area shape =
     end;
 area (Square {obj with n: n});
 `)
+
+console.log(js)

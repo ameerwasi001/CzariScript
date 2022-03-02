@@ -11,7 +11,6 @@ type MatchPattern =
     {type: "Case", val: [string, string]}
     | {type: "Wildcard", val: string}
 
-
 type Expr = 
     {type: "BinOp", fields: [Spanned<Expr>, Spanned<Expr>, OpType, Op, Span]}
     | {type: "Call", fields: [Expr, Expr, Span]}

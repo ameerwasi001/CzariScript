@@ -325,7 +325,7 @@ class Lexer {
                     self.advance()
                 }
                 const span = self.span(starter, self.index)
-                if (str == "null") return {type: "Literal", literalType: "Null", value: "", span}
+                if (str == "null") return {type: "Literal", literalType: "Null", value: "null", span}
                 else if (str == "true" || str == "false") return {type: "Literal", literalType: "Bool", value: str, span}
                 return {type: keywords.has(str) ? "Keyword" : "Variable", value: str, span}
             }
