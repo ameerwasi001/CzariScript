@@ -1,7 +1,7 @@
 import {
     Literal, Op, OpType, VarDefinition,
     LetPattern, MatchPattern, Expr,
-    Readability, TopLevel
+    Readability, TopLevel, exprToString
 } from "./ast.ts";
 
 function argPatternToJs(expr: LetPattern): string {
@@ -15,14 +15,32 @@ function argPatternToJs(expr: LetPattern): string {
 const matchPatternToJs = (pat: MatchPattern, expr: Expr): string => {
     if(pat.type == "Case") {
         const [constructor, variable] = pat.val
-        return `[(constructor_) => constructor_.type == ${constructor}, (${variable}) => { return ${exprToJS(expr)} }]`
+        return `[ (constructor_) => constructor_.$constructor == ${JSON.stringify(constructor)}, ` + 
+        `(${variable}) => { return ${exprToJS(expr)} } ]`
     } else return `[_ => true, (${pat.val}) => { return ${exprToJS(expr)} }]`
+}
+
+const dispatchOperator = (op: Op, opType: OpType, [a, b]: [Expr, Expr]) => {
+    const [str1, str2] = [exprToJS(a), exprToJS(b)]
+    if(opType == "IntOp" || opType == "FloatOp" || opType == "StrOp") {
+        if(op == "Add") return `(${str1} + ${str2})`
+        else if(op == "Sub") return `(${str1} - ${str2})`
+        else if(op == "Mult") return `(${str1} * ${str2})`
+        else if(op == "Div") return `(${str1} / ${str2})`
+        else if(op == "Rem") return `(${str1} % ${str2})`
+    } else if(opType == "IntOrFloatCmp") {
+        if(op == "Lt") return `(${str1} < ${str2})`
+        else if(op == "Lte") return `(${str1} <= ${str2})`
+        else if(op == "Gt") return `(${str1} > ${str2})`
+        else if(op == "Gte") return `(${str1} >= ${str2})`
+    }
+    return `${op}__${opType}(${str1}, ${str2})`
 }
 
 function exprToJS(expr: Expr): string {
     if (expr.type == "BinOp") {
         const [[expr1, _1], [expr2, _2], opType, op, _] = expr.fields
-        return `${op}__${opType}(${exprToJS(expr1)}, ${exprToJS(expr2)})`
+        return dispatchOperator(op, opType, [expr1, expr2])
     } else if (expr.type == "Call") {
         const [expr1, expr2, _] = expr.fields
         return `((${exprToJS(expr1)})(${exprToJS(expr2)}))`
@@ -37,7 +55,7 @@ function exprToJS(expr: Expr): string {
         return `((${argPatternToJs(argPattern)}) => { return ${exprToJS(bodyExpr)} })`
     } else if (expr.type == "If") {
         const [[condExpr, _], thenExpr, elseExpr] = expr.fields
-        return `ifThenElse(${exprToJS(condExpr)}, ${exprToJS(thenExpr)}, ${exprToJS(elseExpr)})`
+        return `ifThenElse(${exprToJS(condExpr)}, () => ${exprToJS(thenExpr)}, () => ${exprToJS(elseExpr)})`
     } else if (expr.type == "Let") {
         const [[id, valExpr], expr1] = expr.fields
         return `(((${id}) => { return ${exprToJS(expr1)} })(${exprToJS(valExpr)}))`
@@ -63,7 +81,7 @@ function exprToJS(expr: Expr): string {
     } else if (expr.type == "Record") {
         const [maybeExpr, xs, _] = expr.fields
         const props = xs.map(([[str, _], expr]) => str + ": " + exprToJS(expr)).join(", ")
-        return maybeExpr == null ? `{${props}}` : `createPrototype({${props}}, ${exprToJS(maybeExpr)})`
+        return  `createPrototype(${maybeExpr == null ? "{}" : exprToJS(maybeExpr)}, {${props}})`
     } else if (expr.type == "RefGet") {
         const [expr1, _] = expr.field
         return `(${exprToJS(expr1)}.$val)`
@@ -75,7 +93,7 @@ function exprToJS(expr: Expr): string {
     }
 }
 
-function topLevelToJs(topLevel: TopLevel) {
+const topLevelToJs = (topLevel: TopLevel): string => {
     if(topLevel.type == "Expr") return exprToJS(topLevel.val)
     else if(topLevel.type == "LetDef") {
         const [id, expr] = topLevel.val
@@ -85,4 +103,8 @@ function topLevelToJs(topLevel: TopLevel) {
             topLevel.val.map(([id, expr]) => `${id} = ${exprToJS(expr)};\n`).join("")
 }
 
-export { topLevelToJs }
+const topLevelsToJs = (topLevels: TopLevel[]) => 
+    "import { ifThenElse, createPrototype, makeCase, matchCases } from \"./runtime.js\";\n\n" + 
+    topLevels.map(topLevelToJs).map(x => x + ";\n").join("")
+
+export { topLevelsToJs }

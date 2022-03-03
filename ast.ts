@@ -127,6 +127,12 @@ const patternToString = (pat: MatchPattern) => {
     else return pat.val
 }
 
+function letPatternToString(pat: LetPattern) {
+    if(pat.type == "Record") {
+        return "{" + pat.val.map(([[prop, _], val]) => `${prop}: ${val}`).join(", ") + "}"
+    } else return pat.val
+}
+
 function exprToString(expr: Expr): string {
     if (expr.type == "BinOp") {
         const [[expr1, _1], [expr2, _2], opType, op, span] = expr.fields
@@ -142,7 +148,7 @@ function exprToString(expr: Expr): string {
         return exprToString(expr1) + "." + str
     } else if (expr.type == "FuncDef") {
         const [[argPattern, bodyExpr], span] = expr.fields
-        return "let _ = _ in " + exprToString(bodyExpr)
+        return `\\${letPatternToString(argPattern)}` + exprToString(bodyExpr)
     } else if (expr.type == "If") {
         const [[expr1, _], expr2, expr3] = expr.fields
         return `if ${expr1} then ${expr2} else ${expr3}`

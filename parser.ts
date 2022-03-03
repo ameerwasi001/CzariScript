@@ -346,7 +346,16 @@ class Parser {
                 return [[{type: "Case", val: [ctor, ident]}, tok.span], (a: Expr) => a]
             } else {
                 const [pat, span] = this.parseLetPattern()
-                const lambdaExpr = (expr: Expr): Expr => { return {type: "FuncDef", fields: [[pat, expr], span]} }
+                const lambdaExpr = (expr: Expr): Expr => { 
+                    return {
+                        type: "Call", 
+                        fields: [
+                            {type: "FuncDef", fields: [[pat, expr], span]},
+                            {type: "Variable", field: [`__matchVar${i}`, span]},
+                            span
+                        ]
+                    }
+                }
                 return [[{type: "Case", val: [ctor, `__matchVar${i}`]}, tok.span], lambdaExpr]
             }
         } else if(tok.type == "Variable") {
