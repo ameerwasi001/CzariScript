@@ -104,7 +104,7 @@ const topLevelToJs = (topLevel: TopLevel): string => {
 }
 
 const topLevelsToJs = (topLevels: TopLevel[]) => 
-    "import { ifThenElse, createPrototype, makeCase, matchCases } from \"./runtime.js\";\n\n" + 
+    "import { ifThenElse, createPrototype, makeCase, matchCases, Eq__AnyCmp, Neq_AnyCmp } from \"./runtime.js\";\n\n" + 
     topLevels.map(topLevelToJs).map(x => x + ";\n").join("")
 
 export { topLevelsToJs }

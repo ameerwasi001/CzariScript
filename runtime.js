@@ -20,4 +20,26 @@ const matchCases = (val, cases) => {
     }
 }
 
-export { ifThenElse, createPrototype, makeCase, matchCases }
+const isString = x => typeof x === 'string'
+const isBool = x => typeof x == "boolean"
+const isInt = x => Number.isInteger(x)
+const isObj = x => typeof x == "object"
+
+function Eq__AnyCmp(a, b) {
+    if(isInt(a) && isInt(b) && a == b) return true
+    else if(isString(a) && isString(b) && a==b) return true
+    else if(isBool(a) && isBool(b) && a == b) return true
+    else if(a === null && b === null) return true
+    else if(isObj(a) && isObj(b)) {
+        for(const k in a) {
+            if(Object.keys(a).length != Object.keys(b).length) return false
+            if(!(b.hasOwnProperty(k))) return false
+            if(!Eq__AnyCmp(a[k], b[k])) return false
+        }
+        return true
+    } else return false
+}
+
+const Neq_AnyCmp = (a, b) => !Eq__AnyCmp(a, b)
+
+export { ifThenElse, createPrototype, makeCase, matchCases, Eq__AnyCmp, Neq_AnyCmp }
