@@ -57,4 +57,14 @@ const assert_lte = (a: number, b: number) => {
     }
 }
 
-export {OrderedSet, assert_array_eq, assert_lte, assert_eq, clear_arr}
+const removeLast = <A>(arr: A[]): A[] => arr.splice(0, arr.length-1)
+
+const dictToArray = <A>(dict: Record<string , A>): [string, A][] => {
+    const arr: [string, A][] = []
+    for(const k in dict) {
+        arr.push([k, dict[k]])
+    }
+    return arr
+}
+
+export {OrderedSet, removeLast, dictToArray, assert_array_eq, assert_lte, assert_eq, clear_arr}

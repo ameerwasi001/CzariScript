@@ -42,4 +42,9 @@ function Eq__AnyCmp(a, b) {
 
 const Neq_AnyCmp = (a, b) => !Eq__AnyCmp(a, b)
 
-export { ifThenElse, createPrototype, makeCase, matchCases, Eq__AnyCmp, Neq_AnyCmp }
+const println = a => {
+    console.log(a)
+    return a
+}
+
+export { println, ifThenElse, createPrototype, makeCase, matchCases, Eq__AnyCmp, Neq_AnyCmp }

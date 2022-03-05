@@ -2,17 +2,18 @@ import { Lexer } from "./lexer.ts"
 import { Parser } from "./parser.ts"
 import { TypeckState } from "./typeCheck.ts"
 import { topLevelsToJs } from "./js.ts"
+import { intorduceBuiltIns, removeBuiltIns } from "./builtIns.ts"
 
 const compile = (source: string) => {
     const lexer = new Lexer(source)
     const spanManager = lexer.spanManager
     try {
-        const toks = lexer.lex()
-        const exprs = new Parser(toks).parseTopLevel()
-        new TypeckState().checkScript(exprs)
+        const toks = intorduceBuiltIns(lexer.lex())
+        const exprs_ = new Parser(toks).parseTopLevel()
+        new TypeckState().checkScript(exprs_)
+        const exprs = removeBuiltIns(exprs_)
         return topLevelsToJs(exprs)
     } catch(err) {
-        console.log(err)
         throw err.print(spanManager)
     }
 }
@@ -30,17 +31,17 @@ access = \\{x: obj} -> do
         n^ = n^+1;
         n^ = n^ * 2;
         fib (n^+5);
-    end where fib n = if n < 2 then 1 else fib(n-1) + fib(n-2) end;
-f "My name is " name;
+    end where fib n = if n < 3 then 1 else fib(n-1) + fib(n-2) end;
+println (f "My name is " name);
 f "a" null;
-fac 10;
+println (fac 10);
 obj = {x: {y: {4, "ABC"}}};
-access {obj with s: "h", m: 3};
+println (access {obj with s: "h", m: 3});
 access {x: {y: {4, 7, "XYZ"}, text: "No!"}} + 4;
 area shape = 
     match shape with
     | Square {n: n} -> n*n
     | Circle cir -> 3.14 .* cir.r .* cir.r
     end;
-area (Square {obj with n: n});
+println (area (Square {obj with n: n}));
 `)
