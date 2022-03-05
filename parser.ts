@@ -163,11 +163,15 @@ class Parser {
             },
             () => {
                 const index = this.index
-                const expr = this.expr()
-                if(this.currentTok.type == "Keyword" && this.currentTok.value == "with") {
-                    this.advance()
-                    prototype = expr[0]
-                    return
+                try {
+                    const expr = this.expr()
+                    if(this.currentTok.type == "Keyword" && this.currentTok.value == "with") {
+                        this.advance()
+                        prototype = expr[0]
+                        return
+                    }
+                } catch(err) {
+                    if(!(err instanceof SpannedError)) throw err
                 }
                 this.revert(index)
             }
@@ -448,11 +452,22 @@ class Parser {
     }
 
     access(): Spanned<Expr> {
-        const accesses: [string, Span][] = []
-        const atom = this.atom()
+        let accesses: [string, Span][] = []
+        let atom = this.atom()
         let tok = this.currentTok
-        while(tok.type == "Dot"){
+        while(tok.type == "Dot" || tok.type == "Circumflex"){
             this.advance()
+            if(tok.type == "Circumflex") {
+                const thingy = makeExprList<Expr>(
+                    accesses, 
+                    atom, 
+                    (id: string, expr: Expr, span: Span): Expr => { return {type: "FieldAccess", fields: [expr, id, span]} }
+                )
+                atom = [{type: "RefGet", field: thingy}, thingy[1]]
+                accesses = []
+                tok = this.currentTok
+                continue
+            }
             if(
                 this.currentTok.type != "Variable" && 
                 !(this.currentTok.type == "Literal" && this.currentTok.literalType == "Int")
