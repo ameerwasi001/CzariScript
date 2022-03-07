@@ -35,7 +35,7 @@ access = \\{x: obj} -> do
 println (f "My name is " name);
 f "a" null;
 println (fac 10);
-obj = {x: {y: {4, "ABC"}}};
+obj = {x: {y: {4, "ABC"}}, getX: \\self n -> self.x.y.0 + n};
 println (access {obj with s: "h", m: 3});
 access {x: {y: {4, 7, "XYZ"}, text: "No!"}} + 4;
 area shape = 
@@ -44,4 +44,5 @@ area shape =
     | Circle cir -> 3.14 .* cir.r .* cir.r
     end;
 println (area (Square {obj with n: n}));
+println (obj:getX 2)
 `)

@@ -484,10 +484,25 @@ class Parser {
             atom, 
             (id: string, expr: Expr, span: Span): Expr => { return {type: "FieldAccess", fields: [expr, id, span]} }
         )
-        if(this.currentTok.type == "Circumflex") {
+        tok = this.currentTok
+        if(tok.type == "Circumflex") {
             const tok = this.currentTok
             this.advance()
             return [{type: "RefGet", field: expr}, tok.span]
+        } else if(tok.type == "Colon") {
+            this.advance()
+            if(this.currentTok.type != "Variable") throw SpannedError.new1(
+                `Expected an identifier, got ${this.currentTok.type}`,
+                this.currentTok.span
+            )
+            const tok = this.currentTok
+            const field = this.currentTok.value
+            this.advance()
+            const ident: Expr = {type: "Variable", field: ["__accessObj", tok.span]}
+            const access: Expr = {type: "FieldAccess", fields: [ident, field, tok.span]}
+            const call: Expr = {type: "Call", fields: [access, ident, tok.span]}
+            const whole: Spanned<Expr> = [{type: "Let", fields: [["__accessObj", expr[0]], call]}, expr[1]]
+            return whole
         } else return expr
     }
 
