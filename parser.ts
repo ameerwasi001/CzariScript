@@ -33,14 +33,31 @@ const makeExprList = <A>(ids: [string, Span][], expr: Spanned<A>, builder: (_1: 
     return access
 }
 
+const createExprLets = (defs: [string, Expr, Span][], counter: number, span: Span) => {
+    const def: [string, Expr, Span]  = 
+        defs[defs.length-1] == undefined
+            ? [
+                `__letVar${counter}`, 
+                {type: "Literal", fields: ["Null", ["null", span]]}, 
+                span
+            ] : defs[defs.length-1]
+    let letDef: Spanned<Expr> = [{type: "Variable", field: [def[0], def[2]]}, def[2]]
+    for(const [id, expr, span] of defs.slice().reverse()) {
+        letDef = [{type: "Let", fields: [[id, expr], letDef[0]]}, span]
+    }
+    return letDef
+}
+
 class Parser {
     index: number
     currentTok: Token
+    classDefs: number
     toks: Token[]
 
     constructor(toks: Token[]){
         this.index = -1
         this.toks = toks
+        this.classDefs = 0
         this.advance()
         this.currentTok = this.index > this.toks.length ? this.toks[this.toks.length - 1] : this.toks[this.index]
     }
@@ -133,6 +150,42 @@ class Parser {
         this.advance()
         const expr = this.expr()
         return [{type: "Let", fields: [[varName, val[0]], expr[0]]}, this.currentTok.span]
+    }
+
+    parseClass(): Spanned<Expr> {
+        this.advance()
+        const tok = this.currentTok
+        if(tok.type != "Variable") throw SpannedError.new1(
+            `Expected a variable, got ${this.currentTok.type}`,
+            this.currentTok.span
+        )
+        const patterns: [LetPattern, Span][] = []
+        const index = this.index
+        while(this.currentTok.type == "Variable" || this.currentTok.type == "OpenBrace") {
+            try {
+                const letPattern = this.parseLetPattern()
+                patterns.push(letPattern)
+            } catch (err) {
+                if(!(err instanceof SpannedError)) throw err
+                this.revert(index)
+                break
+            }
+        }
+        while(this.currentTok.type == "Newline") this.advance()
+        const lvls = this.parseImperative(() => this.currentTok.type == "Keyword" && this.currentTok.value == "end")
+        const defs: [[string, Span], Expr][] = []
+        for(const lvl of lvls) {
+            if(lvl.type == "Left") defs.push([[lvl.ident, lvl.span], lvl.val])
+            else throw SpannedError.new1(
+                `Unexpected expression, expected definition`,
+                lvl.span
+            )
+        }
+        const spannedExpr: Spanned<Expr> = [
+            {type: "Record", fields: [null, defs, this.currentTok.span]}, 
+            this.currentTok.span
+        ]
+        return makeFunc(patterns, spannedExpr)
     }
 
     parseRecord(): Spanned<Expr> {
@@ -248,18 +301,7 @@ class Parser {
                 defs.push([`__letVar${counter}`, expr.val, expr.span])
             }
         }
-        const def: [string, Expr, Span]  = 
-            defs[defs.length-1] == undefined
-                ? [
-                    `__letVar${counter}`, 
-                    {type: "Literal", fields: ["Null", ["null", this.currentTok.span]]}, 
-                    this.currentTok.span
-                ] : defs[defs.length-1]
-        let letDef: Spanned<Expr> = [{type: "Variable", field: [def[0], def[2]]}, def[2]]
-        for(const [id, expr, span] of defs.slice().reverse()) {
-            letDef = [{type: "Let", fields: [[id, expr], letDef[0]]}, span]
-        }
-        return letDef
+        return createExprLets(defs, counter, this.currentTok.span)
     }
 
     parseWhereBlock([expr, span]: Spanned<Expr>): Spanned<Expr> {
@@ -277,8 +319,8 @@ class Parser {
         return [{type: "LetRec", fields: [defs, expr]}, span]
     }
 
-    parseTopLevel(): TopLevel[] {
-        const exprs = this.parseImperative(() => this.currentTok.type == "Eof")
+    parseTopLevel(ends: () => boolean = () => this.currentTok.type == "Eof"): TopLevel[] {
+        const exprs = this.parseImperative(ends)
         const defs: [string, Expr][] = []
         const evals: Expr[] = []
         for(const expr of exprs) {
@@ -580,6 +622,7 @@ class Parser {
         else if(this.currentTok.type == "Keyword" && this.currentTok.value == "let") val = this.parseLet()
         else if(this.currentTok.type == "Keyword" && this.currentTok.value == "do") val = this.parseDoBlock()
         else if(this.currentTok.type == "Keyword" && this.currentTok.value == "match") val = this.parseMatch()
+        else if(this.currentTok.type == "Keyword" && this.currentTok.value == "class") val = this.parseClass()
         else throw SpannedError.new1(`Syntax Error: Unexpected token ${tok.type}`, tok.span)
 
         return val

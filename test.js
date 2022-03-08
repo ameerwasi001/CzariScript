@@ -6,6 +6,7 @@ let x;
 let f;
 let fac;
 let access;
+let objC;
 let obj;
 let area;
 n = (9 + (10 * 2));
@@ -20,7 +21,8 @@ access = (({x: obj}) => { return (() => {
 	
 	return (((n) => { return (((__letVar1) => { return (((__letVar2) => { return (((__letVar3) => { return __letVar3 })(((fib)(((n.$val) + 5))))) })((n.$val = ((n.$val) * 2)))) })((n.$val = ((n.$val) + 1)))) })({$val: ((obj["y"])["0"])}))
 })() });
-obj = createPrototype({}, {x: createPrototype({}, {y: createPrototype({}, {0: 4, 1: "ABC"})}), getX: ((self) => { return ((n) => { return ((((self["x"])["y"])["0"]) + n) }) })});
+objC = ((n) => { return createPrototype({}, {x: n, getX: ((self) => { return ((n) => { return ((((self["x"])["y"])["0"]) + n) }) })}) });
+obj = ((objC)(createPrototype({}, {y: createPrototype({}, {0: 4, 1: "ABC"})})));
 area = ((shape) => { return matchCases(shape, [[ (constructor_) => constructor_.$constructor == "Square", (__matchVar0) => { return (((({n: n}) => { return (n * n) }))(__matchVar0)) } ], [ (constructor_) => constructor_.$constructor == "Circle", (cir) => { return ((3.14 * (cir["r"])) * (cir["r"])) } ]]) });
 ;
 ((println)(((((f)("My name is ")))(name))));

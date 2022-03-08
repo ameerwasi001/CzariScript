@@ -35,7 +35,11 @@ access = \\{x: obj} -> do
 println (f "My name is " name);
 f "a" null;
 println (fac 10);
-obj = {x: {y: {4, "ABC"}}, getX: \\self n -> self.x.y.0 + n};
+objC = class n;
+    x = n;
+    getX self n = self.x.y.0 + n;
+end;
+obj = objC {y: {4, "ABC"}};
 println (access {obj with s: "h", m: 3});
 access {x: {y: {4, 7, "XYZ"}, text: "No!"}} + 4;
 area shape = 
