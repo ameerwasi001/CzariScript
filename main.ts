@@ -18,35 +18,10 @@ const compile = (source: string) => {
     }
 }
 
-const compleToFile = async (source: string) => await Deno.writeTextFile("./test.js", compile(source))
+if(Deno.args.length != 2) throw "Expected following syntax: [executable-name] inputFile outputFile"
 
-compleToFile(`
-n = 9+10*2;
-name = "Am" & "ee" & "r";
-x = (if n > 2 then 1 else 4)+4;
-f x y = if y = null then x else x & y;
-fac = \\n -> if n < 2 then 1 else n*fac(n-1);
-access = \\{x: obj} -> do
-        n = @obj.y.0;
-        n^ = n^+1;
-        n^ = n^ * 2;
-        fib (n^+5);
-    end where fib n = if n < 3 then 1 else fib(n-1) + fib(n-2) end;
-println (f "My name is " name);
-f "a" null;
-println (fac 10);
-objC = class n with {text: "Hello"} so
-    x = n;
-    getX self n = self.x.y.0 + n;
-end;
-obj = objC {y: {4, "ABC"}};
-println (access {obj with s: "h", m: 3});
-access {x: {y: {4, 7, "XYZ"}, text: "No!"}} + 4;
-area shape = 
-    match shape with
-    | Square {n: n} -> n*n
-    | Circle cir -> 3.14 .* cir.r .* cir.r
-    end;
-println (area (Square {obj with n: n}));
-println (obj:getX 2)
-`)
+const compleToFile = async (source: string) => await Deno.writeTextFile(Deno.args[1], compile(source))
+const readFile = async (fName: string) => await Deno.readTextFile(fName)
+
+const contents = await readFile(Deno.args[0])
+await compleToFile(contents)
