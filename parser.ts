@@ -51,13 +51,11 @@ const createExprLets = (defs: [string, Expr, Span][], counter: number, span: Spa
 class Parser {
     index: number
     currentTok: Token
-    classDefs: number
     toks: Token[]
 
     constructor(toks: Token[]){
         this.index = -1
         this.toks = toks
-        this.classDefs = 0
         this.advance()
         this.currentTok = this.index > this.toks.length ? this.toks[this.toks.length - 1] : this.toks[this.index]
     }
@@ -161,6 +159,7 @@ class Parser {
         )
         const patterns: [LetPattern, Span][] = []
         const index = this.index
+        let inheritanceExpr: Expr | null = null
         while(this.currentTok.type == "Variable" || this.currentTok.type == "OpenBrace") {
             try {
                 const letPattern = this.parseLetPattern()
@@ -172,6 +171,19 @@ class Parser {
             }
         }
         while(this.currentTok.type == "Newline") this.advance()
+        if(this.currentTok.type == "Keyword" && this.currentTok.value == "with") {
+            this.advance()
+            inheritanceExpr = this.expr()[0]
+        }
+        if(this.currentTok.type != "Keyword") throw SpannedError.new1(
+            `Expected 'do', but got ${this.currentTok.type}`,
+            this.currentTok.span
+        )
+        if(this.currentTok.value != "so") throw SpannedError.new1(
+            `Expected 'do', but got ${this.currentTok.type}`,
+            this.currentTok.span
+        )
+        this.advance()
         const lvls = this.parseImperative(() => this.currentTok.type == "Keyword" && this.currentTok.value == "end")
         const defs: [[string, Span], Expr][] = []
         for(const lvl of lvls) {
@@ -182,7 +194,7 @@ class Parser {
             )
         }
         const spannedExpr: Spanned<Expr> = [
-            {type: "Record", fields: [null, defs, this.currentTok.span]}, 
+            {type: "Record", fields: [inheritanceExpr, defs, this.currentTok.span]}, 
             this.currentTok.span
         ]
         return makeFunc(patterns, spannedExpr)

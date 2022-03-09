@@ -35,7 +35,7 @@ access = \\{x: obj} -> do
 println (f "My name is " name);
 f "a" null;
 println (fac 10);
-objC = class n;
+objC = class n with {text: "Hello"} so
     x = n;
     getX self n = self.x.y.0 + n;
 end;

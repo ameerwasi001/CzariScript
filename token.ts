@@ -59,10 +59,11 @@ type Keyword =
     | "do"
     | "match"
     | "where"
+    | "so"
     | "class"
     | "end"
 
-const keywords = new Set(["if", "then", "else", "let", "in", "with", "do", "match", "where", "class", "end"])
+const keywords = new Set(["if", "then", "else", "let", "in", "with", "do", "match", "where", "so", "class", "end"])
 
 export type { Keyword, Token, Literal, Op, OpType }
 export { keywords }
