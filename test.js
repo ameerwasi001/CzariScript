@@ -21,7 +21,7 @@ access = (({x: obj}) => { return (() => {
 	
 	return (((n) => { return (((__letVar1) => { return (((__letVar2) => { return (((__letVar3) => { return __letVar3 })(((fib)(((n.$val) + 5))))) })((n.$val = ((n.$val) * 2)))) })((n.$val = ((n.$val) + 1)))) })({$val: ((obj["y"])["0"])}))
 })() });
-objC = ((n) => { return createPrototype(createPrototype({}, {text: "Hello"}), {x: n, getX: ((self) => { return ((n) => { return ((((self["x"])["y"])["0"]) + n) }) })}) });
+objC = ((n) => { return createPrototype(createPrototype({}, {text: "Hello"}), {x: n, getX: ((self) => { return ((n) => { return (((((__accessObj) => { return (((__accessObj["id"]))(__accessObj)) })(self)))(((((self["x"])["y"])["0"]) + n))) }) }), id: ((self) => { return ((x) => { return x }) })}) });
 obj = ((objC)(createPrototype({}, {y: createPrototype({}, {0: 4, 1: "ABC"})})));
 area = ((shape) => { return matchCases(shape, [[ (constructor_) => constructor_.$constructor == "Square", (__matchVar0) => { return (((({n: n}) => { return (n * n) }))(__matchVar0)) } ], [ (constructor_) => constructor_.$constructor == "Circle", (cir) => { return ((3.14 * (cir["r"])) * (cir["r"])) } ]]) });
 ;
@@ -31,4 +31,4 @@ area = ((shape) => { return matchCases(shape, [[ (constructor_) => constructor_.
 ((println)(((access)(createPrototype(obj, {s: "h", m: 3})))));
 (((access)(createPrototype({}, {x: createPrototype({}, {y: createPrototype({}, {0: 4, 1: 7, 2: "XYZ"}), text: "No!"})}))) + 4);
 ((println)(((area)(makeCase("Square", createPrototype(obj, {n: n}))))));
-((println)((((((__accessObj) => { return (((__accessObj["getX"]))(__accessObj)) })(obj)))(2))));
+(((double) => { return ((println)((((((__accessObj) => { return (((__accessObj["getX"]))(__accessObj)) })(obj)))(((double)(1)))))) })(((n) => { return (n * 2) })));

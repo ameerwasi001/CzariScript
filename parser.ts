@@ -126,6 +126,18 @@ class Parser {
         )
         const varName = tok.value
         this.advance()
+        const patterns: [LetPattern, Span][] = []
+        while(this.currentTok.type == "Variable" || this.currentTok.type == "OpenBrace") {
+            let index = this.index
+            try {
+                const letPattern = this.parseLetPattern()
+                patterns.push(letPattern)
+            } catch (err) {
+                if(!(err instanceof SpannedError)) throw err
+                this.revert(index)
+                break
+            }
+        }
         const tok_ = this.currentTok
         if(tok_.type != "Op") throw SpannedError.new1(
             `Expected =, got ${this.currentTok.type}`,
@@ -147,7 +159,8 @@ class Parser {
         )
         this.advance()
         const expr = this.expr()
-        return [{type: "Let", fields: [[varName, val[0]], expr[0]]}, this.currentTok.span]
+        const [func, _] = makeFunc(patterns, val)
+        return [{type: "Let", fields: [[varName, func], expr[0]]}, this.currentTok.span]
     }
 
     parseClass(): Spanned<Expr> {
