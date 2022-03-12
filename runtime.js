@@ -42,8 +42,39 @@ function Eq__AnyCmp(a, b) {
 
 const Neq_AnyCmp = (a, b) => !Eq__AnyCmp(a, b)
 
+function objInArrayByIdentity(obj, arr) {
+    if(typeof obj != "object") throw "This should only be called with objects"
+    for(const elem of arr) {
+        if(obj === elem) return true
+    }
+    return false
+}
+
+function toStringByObj(obj, visited) {
+    if(typeof obj == "number" || typeof obj == "boolean" || typeof obj == "string") return obj.toString()
+    else if(obj === null) return "null"
+    else if(typeof obj == "object") {
+        if(objInArrayByIdentity(obj, visited)) return "<cycle>"
+        visited.push(obj)
+        if(Object.keys(obj).length == 1 && obj.hasOwnProperty("$val")) return `@${toStringByObj(obj["$val"], visited)}`
+        if(Object.keys(obj).length == 2 && obj.hasOwnProperty("$constructor") && obj.hasOwnProperty("$wholeValue")) {
+            return `${obj["$constructor"]} ${toStringByObj(obj["$wholeValue"], visited)}`
+        }
+        const kvs = []
+        for(const k in obj) {
+            const v = obj[k]
+            kvs.push([k, toStringByObj(v, visited)])
+        }
+        return "{" + kvs.map(([k, v]) => `${k}: ${v}`).join(", ") + "}"
+    }
+}
+
+function toString(obj) {
+    return toStringByObj(obj, [])
+}
+
 const println = a => {
-    console.log(a)
+    console.log(toString(a))
     return a
 }
 

@@ -6,6 +6,7 @@ let x;
 let f;
 let fac;
 let access;
+let textC;
 let objC;
 let obj;
 let area;
@@ -21,8 +22,9 @@ access = (({x: obj}) => { return (() => {
 	
 	return (((n) => { return (((__letVar1) => { return (((__letVar2) => { return (((__letVar3) => { return __letVar3 })(((fib)(((n.$val) + 5))))) })((n.$val = ((n.$val) * 2)))) })((n.$val = ((n.$val) + 1)))) })({$val: ((obj["y"])["0"])}))
 })() });
-objC = ((n) => { return createPrototype(createPrototype({}, {text: "Hello"}), {x: n, getX: ((self) => { return ((n) => { return (((((__accessObj) => { return (((__accessObj["id"]))(__accessObj)) })(self)))(((((self["x"])["y"])["0"]) + n))) }) }), id: ((self) => { return ((x) => { return x }) })}) });
-obj = ((objC)(createPrototype({}, {y: createPrototype({}, {0: 4, 1: "ABC"})})));
+textC = createPrototype({}, {new: ((str) => { return createPrototype({}, {text: {$val: str}}) })});
+objC = createPrototype(textC, {new: ((n) => { return createPrototype((((textC["new"]))("Hello")), {x: n, getX: ((self) => { return ((n) => { return (((((__accessObj) => { return (((__accessObj["id"]))(__accessObj)) })(self)))(((((self["x"])["y"])["0"]) + n))) }) }), id: ((self) => { return ((x) => { return x }) })}) })});
+obj = (((objC["new"]))(createPrototype({}, {y: createPrototype({}, {0: 4, 1: "ABC"})})));
 area = ((shape) => { return matchCases(shape, [[ (constructor_) => constructor_.$constructor == "Square", (__matchVar0) => { return (((({n: n}) => { return (n * n) }))(__matchVar0)) } ], [ (constructor_) => constructor_.$constructor == "Circle", (cir) => { return ((3.14 * (cir["r"])) * (cir["r"])) } ]]) });
 ;
 ((println)(((((f)("My name is ")))(name))));

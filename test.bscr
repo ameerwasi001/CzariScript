@@ -12,12 +12,15 @@ access = \{x: obj} -> do
 println (f "My name is " name);
 f "a" null;
 println (fac 10);
-objC = class n with {text: "Hello"} so
+textC = class str so
+    text = @str;
+end;
+objC = class n with textC::textC.new "Hello" so
     x = n;
     getX self n = self:id (self.x.y.0 + n);
     id self x = x
 end;
-obj = objC {y: {4, "ABC"}};
+obj = objC.new {y: {4, "ABC"}};
 println (access {obj with s: "h", m: 3});
 access {x: {y: {4, 7, "XYZ"}, text: "No!"}} + 4;
 area shape = 

@@ -276,6 +276,17 @@ class Lexer {
             )
         ],
         [
+            "DoubleColon",
+            (self: Lexer) => self.matches("::"),
+            (self: Lexer) => {
+                const a = this.index
+                this.advance()
+                return self.advanceValue(
+                    {type: "DoubleColon", span: self.span(a, this.index)}
+                )
+            }
+        ],
+        [
             "Colon",
             (self: Lexer) => self.matches(":"),
             (self: Lexer) => self.advanceValue(

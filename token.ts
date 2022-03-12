@@ -35,6 +35,7 @@ type Token =
     | {type: "Keyword", value: string, span: Span}
     | {type: "Newline", span: Span}
     | {type: "Colon", span: Span}
+    | {type: "DoubleColon", span: Span}
     | {type: "Dot", span: Span}
     | {type: "Lambda", span: Span}
     | {type: "Arrow", span: Span}

@@ -2,7 +2,7 @@ import { Expr, VarDefinition } from "./ast.ts"
 import { Token, Op } from "./token.ts"
 import { Span, Spanned, SpannedError } from "./spans.ts"
 import { TopLevel } from "./ast.ts"
-import { LetPattern, MatchPattern } from "./ast.ts"
+import { exprToString, LetPattern, MatchPattern } from "./ast.ts"
 
 const buildCall = (atoms: Spanned<Expr>[]) => {
     if (atoms[atoms.length-1]==undefined) throw "Impossible!"
@@ -171,9 +171,10 @@ class Parser {
             this.currentTok.span
         )
         const patterns: [LetPattern, Span][] = []
-        const index = this.index
         let inheritanceExpr: Expr | null = null
+        let objInheritanceExpr: Expr | null = null
         while(this.currentTok.type == "Variable" || this.currentTok.type == "OpenBrace") {
+            const index = this.index
             try {
                 const letPattern = this.parseLetPattern()
                 patterns.push(letPattern)
@@ -184,16 +185,21 @@ class Parser {
             }
         }
         while(this.currentTok.type == "Newline") this.advance()
-        if(this.currentTok.type == "Keyword" && this.currentTok.value == "with") {
+        const tok_ = this.currentTok
+        if(tok_.type == "Keyword" && tok_.value == "with") {
             this.advance()
             inheritanceExpr = this.expr()[0]
+            if(this.currentTok.type == "DoubleColon") {
+                this.advance()
+                objInheritanceExpr = this.expr()[0]
+            }
         }
         if(this.currentTok.type != "Keyword") throw SpannedError.new1(
-            `Expected 'do', but got ${this.currentTok.type}`,
+            `Expected 'so', but got ${this.currentTok.type}`,
             this.currentTok.span
         )
         if(this.currentTok.value != "so") throw SpannedError.new1(
-            `Expected 'do', but got ${this.currentTok.type}`,
+            `Expected 'so', but got ${this.currentTok.type}`,
             this.currentTok.span
         )
         this.advance()
@@ -206,11 +212,27 @@ class Parser {
                 lvl.span
             )
         }
-        const spannedExpr: Spanned<Expr> = [
-            {type: "Record", fields: [inheritanceExpr, defs, this.currentTok.span]}, 
+        let callNewExpr: Expr | null = null
+        if(inheritanceExpr === null) callNewExpr = null
+        else if(objInheritanceExpr === null) callNewExpr = {
+            type: "Call",
+            fields: [
+                {type: "FieldAccess", fields: [inheritanceExpr, "new", this.currentTok.span]},
+                {type: "Record", fields: [null, [], this.currentTok.span]},
+                this.currentTok.span
+            ]
+        }
+        else callNewExpr = objInheritanceExpr
+        const objRecord: Spanned<Expr> = [
+            {type: "Record", fields: [callNewExpr, defs, this.currentTok.span]},
             this.currentTok.span
         ]
-        return makeFunc(patterns, spannedExpr)
+        const statics: [[string, Span], Expr][] = [[["new", this.currentTok.span], makeFunc(patterns, objRecord)[0]]]
+        const classRecordExpr: Spanned<Expr> = [
+            {type: "Record", fields: [inheritanceExpr, statics, this.currentTok.span]}, 
+            this.currentTok.span
+        ]
+        return classRecordExpr
     }
 
     parseRecord(): Spanned<Expr> {
@@ -441,6 +463,9 @@ class Parser {
     }
 
     parseMatch(): Spanned<Expr> {
+        const tok_ = this.currentTok
+        if(tok_.type != "Keyword") throw "Shit!"
+        if(tok_.value != "match") throw "Shit!"
         this.advance()
         const [expr, span] = this.expr()
         const tok = this.currentTok
