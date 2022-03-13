@@ -91,6 +91,13 @@ class Parser {
         return left
     }
 
+    beginsPattern(tok: Token | null) {
+        const currTok = tok == null ? this.currentTok : tok
+        return currTok.type == "Variable" ||
+            currTok.type == "OpenBrace" ||
+            currTok.type == "OpenParen"
+    }
+
     parseSeperated<A>(sep: string, start: string | null, ends: () => boolean, parser: () => A, postStart = () => {}){
         if(start != null && this.currentTok.type != start) throw SpannedError.new1(
             `Syntax Error: Unexpected token ${this.currentTok.type}, expected 'then'`,
@@ -127,7 +134,7 @@ class Parser {
         const varName = tok.value
         this.advance()
         const patterns: [LetPattern, Span][] = []
-        while(this.currentTok.type == "Variable" || this.currentTok.type == "OpenBrace") {
+        while(this.beginsPattern(null)) {
             let index = this.index
             try {
                 const letPattern = this.parseLetPattern()
@@ -173,7 +180,7 @@ class Parser {
         const patterns: [LetPattern, Span][] = []
         let inheritanceExpr: Expr | null = null
         let objInheritanceExpr: Expr | null = null
-        while(this.currentTok.type == "Variable" || this.currentTok.type == "OpenBrace") {
+        while(this.beginsPattern(null)) {
             const index = this.index
             try {
                 const letPattern = this.parseLetPattern()
@@ -235,14 +242,14 @@ class Parser {
         return classRecordExpr
     }
 
-    parseRecord(): Spanned<Expr> {
+    parseRecord(start: string | null, end: string): Spanned<Expr> {
         const span = this.currentTok.span
         let prototype: Expr | null = null
         let n = 0
         const fields = this.parseSeperated(
             "Comma",
-            "OpenBrace",
-            () => this.currentTok.type == "CloseBrace",
+            start,
+            () => this.currentTok.type == end,
             (): [Spanned<string>, Expr] => {
                 const tok = this.currentTok
                 const index = this.index
@@ -302,7 +309,7 @@ class Parser {
                         const patterns: [LetPattern, Span][] = []
                         const index = this.index
                         this.advance()
-                        while(this.currentTok.type == "Variable" || this.currentTok.type == "OpenBrace") {
+                        while(this.beginsPattern(null)) {
                             try {
                                 const letPattern = this.parseLetPattern()
                                 patterns.push(letPattern)
@@ -390,13 +397,14 @@ class Parser {
             const tok = this.currentTok
             this.advance()
             return [{type: "Var", val: tok.value}, tok.span]
-        } else if(this.currentTok.type == "OpenBrace") {
+        } else if(this.currentTok.type == "OpenBrace" || this.currentTok.type == "OpenParen") {
             const span = this.currentTok.span
             let n = 0
+            const closer = this.currentTok.type == "OpenBrace" ? "CloseBrace" : "CloseParen"
             const fields = this.parseSeperated(
                 "Comma",
-                "OpenBrace",
-                () => this.currentTok.type == "CloseBrace",
+                this.currentTok.type,
+                () => this.currentTok.type == closer,
                 (): [Spanned<string>, LetPattern] => {
                     const tok = this.currentTok
                     const index = this.index
@@ -617,7 +625,7 @@ class Parser {
             const patterns: [LetPattern, Span][] = []
             this.advance()
             let currTok = this.currentTok
-            while(currTok.type == "Variable" || currTok.type == "OpenBrace") {
+            while(this.beginsPattern(currTok)) {
                 patterns.push(this.parseLetPattern())
                 currTok = this.currentTok
             }
@@ -650,13 +658,33 @@ class Parser {
             val = [{type: "If", fields: [condExpr, thenExpr[0], elseExpr[0]]}, tok.span]
         } else if (tok.type == "OpenParen") {
             this.advance()
-            const expr = this.expr()
-            if(this.currentTok.type != "CloseParen") throw SpannedError.new1(
-                `Syntax Error: Unexpected token ${this.currentTok.type}, expected ')'`,
-                this.currentTok.span
-            )
-            this.advance()
-            val = expr
+            const tok = this.currentTok
+            if(tok.type == "CloseParen") {
+                val = [
+                    {type: "Record", fields: [null, [], this.currentTok.span]}, 
+                    this.currentTok.span
+                ]
+                this.advance()
+            } else {
+                const index = this.index
+                try {
+                    const expr = this.expr()
+                    if (this.currentTok.type == "CloseParen") {
+                        this.advance()
+                        val = expr
+                    } else if(this.currentTok.type == "Colon") {
+                        this.revert(index)
+                        val = this.parseRecord(null, "CloseParen")
+                    } else throw SpannedError.new1(
+                        `Expected either an expression a record`,
+                        this.currentTok.span
+                    )
+                } catch(err) {
+                    if(!(err instanceof SpannedError)) throw err
+                    this.revert(index)
+                    val = this.parseRecord(null, "CloseParen")
+                }
+            }
         }
         else if(tok.type == "Constructor") {
             this.advance()
@@ -668,7 +696,7 @@ class Parser {
             const [expr, span] = this.factor()
             val = [{type: "NewRef", fields: [expr, span]}, span]
         }
-        else if(tok.type == "OpenBrace") return this.parseRecord()
+        else if(tok.type == "OpenBrace") return this.parseRecord("OpenBrace", "CloseBrace")
         else if(this.currentTok.type == "Keyword" && this.currentTok.value == "let") val = this.parseLet()
         else if(this.currentTok.type == "Keyword" && this.currentTok.value == "do") val = this.parseDoBlock()
         else if(this.currentTok.type == "Keyword" && this.currentTok.value == "match") val = this.parseMatch()

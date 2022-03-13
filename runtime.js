@@ -66,7 +66,7 @@ function toStringByObj(obj, visited) {
             kvs.push([k, toStringByObj(v, visited)])
         }
         return "{" + kvs.map(([k, v]) => `${k}: ${v}`).join(", ") + "}"
-    }
+    } else if(typeof obj == "function") return "<function>"
 }
 
 function toString(obj) {
