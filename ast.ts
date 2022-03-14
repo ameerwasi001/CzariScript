@@ -1,4 +1,5 @@
 import { Span, Spanned, SpannedError, cloneSpan } from "./spans.ts"
+import { RefGraph } from "./graph.ts"
 import { Literal, Op, OpType } from "./token.ts"
 
 type VarDefinition = [string, Expr]
@@ -187,9 +188,104 @@ function exprToString(expr: Expr): string {
     }
 }
 
+const matchPatternReferenceGraph = (pat: MatchPattern) : Set<string> => {
+    if (pat.type == "Case") return new Set([pat.val[1]])
+    else return new Set([pat.val])
+}
+
+const matchPatternsReferenceGraph = (pats: MatchPattern[]) : Set<string> => {
+    const defs = new Set<string>()
+    for(const pat of pats) {
+        for(const def of matchPatternReferenceGraph(pat)) defs.add(def)
+    }
+    return defs
+}
+
+function letPatternReferenceGraph(pat: LetPattern, graph: RefGraph): Set<string> {
+    if(pat.type == "Record") {
+        const defs: Set<string> = new Set()
+        for(const [[_1, _2], val] of pat.val) {
+            for(const str of letPatternReferenceGraph(val, graph)) defs.add(str)
+        }
+        return defs
+    } else return new Set([pat.val])
+}
+
+function referenceGraph(expr: Expr, graph: RefGraph) {
+    if (expr.type == "BinOp") {
+        const [[expr1, _1], [expr2, _2], opType, op, span] = expr.fields
+        referenceGraph(expr1, graph)
+        referenceGraph(expr2, graph)
+    } else if (expr.type == "Call") {
+        const [expr1, expr2, _] = expr.fields
+        referenceGraph(expr1, graph)
+        referenceGraph(expr2, graph)
+    } else if (expr.type == "Case") {
+        const [[_1, _2], newExpr] = expr.fields
+        referenceGraph(newExpr, graph)
+    } else if (expr.type == "FieldAccess") {
+        const [expr1, _1, _2] = expr.fields
+        referenceGraph(expr1, graph)
+    } else if (expr.type == "FuncDef") {
+        // const [[argPattern, bodyExpr], _] = expr.fields
+        // const defs = letPatternReferenceGraph(argPattern, graph)
+        // graph.withNoneOf(defs, bodyExpr, referenceGraph)
+    } else if (expr.type == "If") {
+        const [[expr1, _], expr2, expr3] = expr.fields
+        referenceGraph(expr1, graph)
+        referenceGraph(expr2, graph)
+        referenceGraph(expr3, graph)
+    } else if (expr.type == "Let") {
+        const [[id, valExpr], expr1] = expr.fields
+        graph.withNoneOf(new Set([id]), valExpr, referenceGraph)
+        graph.withNoneOf(new Set([id]), expr1, referenceGraph)
+    } else if (expr.type == "LetRec") {
+        const [varDefinitions, expr1] = expr.fields
+        const defs = new Set<string>()
+        for(const [id, _] of varDefinitions) defs.add(id)
+        for(const [_, expr] of varDefinitions) graph.withNoneOf(defs, expr, referenceGraph)
+        graph.withNoneOf(defs, expr1, referenceGraph)
+    } else if (expr.type == "Literal") {} 
+    else if (expr.type == "Match") {
+        const [expr1, xs, _1] = expr.fields
+        referenceGraph(expr1, graph)
+        for (const [[pat, _1], expr] of xs) {
+            const defs = matchPatternReferenceGraph(pat)
+            graph.withNoneOf(defs, expr, referenceGraph)
+        }
+    } else if (expr.type == "NewRef") {
+        const [expr1, _] = expr.fields
+        referenceGraph(expr1, graph)
+    } else if (expr.type == "Record") {
+        const [maybeExpr, xs, _] = expr.fields
+        for(const [[_1, _2], expr] of xs) referenceGraph(expr, graph)
+        maybeExpr == null ? "" : referenceGraph(maybeExpr, graph)
+    } else if (expr.type == "RefGet") {
+        const [expr1, _] = expr.field
+        referenceGraph(expr1, graph)
+    } else if (expr.type == "RefSet") {
+        const [[expr1, _], expr2] = expr.fields
+        referenceGraph(expr1, graph)
+        referenceGraph(expr2, graph)
+    } else {
+        graph.addEdge(expr.field[0])
+    }
+}
+
+const topLevelGraph = (topLevels: TopLevel[]): RefGraph => {
+    const refGraph = new RefGraph()
+    for(const topLevel of topLevels) {
+        if(topLevel.type == "LetRecDef") {
+            const defs = topLevel.val
+            for(const [id, val] of defs) refGraph.runFromDef(id, val, referenceGraph)
+        }
+    }
+    return refGraph
+}
+
 export type { 
     Literal, Op, OpType, VarDefinition, 
     LetPattern, MatchPattern, Expr, 
-    Readability, TopLevel 
+    Readability, TopLevel
 }
-export { cloneExpr, exprToString }
+export { cloneExpr, exprToString, topLevelGraph }
