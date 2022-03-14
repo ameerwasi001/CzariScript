@@ -107,22 +107,22 @@ const enumerate = <T>(xs: T[]): [number, T][] => {
     return ys
 }
 
-function checkLetRecDefs(engine: TypeCheckerCore, bindings: Bindings, defs: [string, Expr][]) {
+function checkLetRecDefs(engine: TypeCheckerCore, bindings: Bindings, defs: [[string, Expr], Span][]) {
     const savedBindings = new Bindings()
     savedBindings.m = {}
     for(const k in bindings.m) savedBindings.m[k] = cloneScheme(bindings.m[k])
     savedBindings.changes = []
 
-    const savedDefs = defs.map(([name, def]): [string, Expr] => [name, cloneExpr(def)])
+    const savedDefs = defs.map(([[name, def], span]): [[string, Expr], Span] => [[name, cloneExpr(def)], span])
     const f = (engine: TypeCheckerCore, i: number) => savedBindings.inChildScope(bindings => {
         const tempVars: [Value, Use][] = []
-        for(const [name, _] of savedDefs) {
+        for(const [[name, _1], _2] of savedDefs) {
             const [tempType, tempBound] = engine.newVar()
             bindings.insert(name, tempType)
             tempVars.push([tempType, tempBound])
         }
 
-        for (const [[_1, expr], [_2, bound]] of zip(savedDefs, tempVars)) {
+        for (const [[[_1, expr], _2], [_3, bound]] of zip(savedDefs, tempVars)) {
             const varType = checkExpr(engine, bindings, expr)
             engine.flow(varType, bound)
         }
@@ -132,7 +132,7 @@ function checkLetRecDefs(engine: TypeCheckerCore, bindings: Bindings, defs: [str
 
     f(engine, 0)
 
-    for(const [i, [name, _3]] of enumerate(defs)) {
+    for(const [i, [[name, _1], _2]] of enumerate(defs)) {
         const fx = f
         const scheme: Scheme = {type: "Poly", val: engine => fx(engine, i)}
         bindings.insert_scheme(name, scheme)
@@ -502,7 +502,7 @@ const test = () => {
     const funF1: Expr = {type: "FuncDef", fields: [[arg1, callG], span1]}
     const funG1: Expr = {type: "FuncDef", fields: [[arg1, callF], span1]}
 
-    const recs: VarDefinition[] = [["f", funF1], ["g", funG1]]
+    const recs: [VarDefinition, Span][] = [[["f", funF1], span1], [["g", funG1], span1]]
 
     const callGTop: Expr = {type: "Call", fields: [varG, num1, span3]}
 

@@ -20,7 +20,7 @@ type Expr =
     | {type: "FuncDef", fields: Spanned<[LetPattern, Expr]>}
     | {type: "If", fields: [Spanned<Expr>, Expr, Expr]}
     | {type: "Let", fields: [VarDefinition, Expr]}
-    | {type: "LetRec", fields: [VarDefinition[], Expr]}
+    | {type: "LetRec", fields: [Spanned<VarDefinition>[], Expr]}
     | {type: "Literal", fields: [Literal, Spanned<string>]}
     | {type: "Match", fields: [Expr, [Spanned<MatchPattern>, Expr][], Span]}
     | {type: "NewRef", fields: [Expr, Span]}
@@ -37,7 +37,7 @@ type Readability =
 type TopLevel = 
     {type: "Expr", val: Expr}
     | {type: "LetDef", val: VarDefinition}
-    | {type: "LetRecDef", val: VarDefinition[]}
+    | {type: "LetRecDef", val: [VarDefinition, Span][]}
 
 const cloneSpannedExpr = ([expr, span]: [Expr, Span]): Spanned<Expr> => {
     return [cloneExpr(expr), cloneSpan(span)]
@@ -96,7 +96,7 @@ function cloneExpr(expr: Expr): Expr {
         return {type: "Let", fields: [cloenVarDefinition(varDefinition), cloneExpr(expr1)]}
     } else if (expr.type == "LetRec") {
         const [varDefinitions, expr1] = expr.fields
-        return {type: "LetRec", fields: [varDefinitions.map(def => cloenVarDefinition(def)), cloneExpr(expr1)]}
+        return {type: "LetRec", fields: [varDefinitions.map(([def, span]) => [cloenVarDefinition(def), cloneSpan(span)]), cloneExpr(expr1)]}
     } else if (expr.type == "Literal") {
         const [literal, spannedString] = expr.fields
         return {type: "Literal", fields: [literal, cloneSpannedString(spannedString)]}
@@ -158,7 +158,7 @@ function exprToString(expr: Expr): string {
         return `let ${id} = ${exprToString(valExpr)} in ${exprToString(expr1)}`
     } else if (expr.type == "LetRec") {
         const [varDefinitions, expr1] = expr.fields
-        return "letrec " + varDefinitions.map(([id, val]) => `${id} = ${exprToString(val)}`).join(", ") + " in " + exprToString(expr1)
+        return "letrec " + varDefinitions.map(([[id, val], _]) => `${id} = ${exprToString(val)}`).join(", ") + " in " + exprToString(expr1)
     } else if (expr.type == "Literal") {
         const [_1, [str, _2]] = expr.fields
         return str
@@ -242,8 +242,8 @@ function referenceGraph(expr: Expr, graph: RefGraph) {
     } else if (expr.type == "LetRec") {
         const [varDefinitions, expr1] = expr.fields
         const defs = new Set<string>()
-        for(const [id, _] of varDefinitions) defs.add(id)
-        for(const [_, expr] of varDefinitions) graph.withNoneOf(defs, expr, referenceGraph)
+        for(const [[id, _1], _2] of varDefinitions) defs.add(id)
+        for(const [[_1, expr], _2] of varDefinitions) graph.withNoneOf(defs, expr, referenceGraph)
         graph.withNoneOf(defs, expr1, referenceGraph)
     } else if (expr.type == "Literal") {} 
     else if (expr.type == "Match") {
@@ -268,7 +268,7 @@ function referenceGraph(expr: Expr, graph: RefGraph) {
         referenceGraph(expr1, graph)
         referenceGraph(expr2, graph)
     } else {
-        graph.addEdge(expr.field[0])
+        graph.addEdge(...expr.field)
     }
 }
 
@@ -277,7 +277,7 @@ const topLevelGraph = (topLevels: TopLevel[]): RefGraph => {
     for(const topLevel of topLevels) {
         if(topLevel.type == "LetRecDef") {
             const defs = topLevel.val
-            for(const [id, val] of defs) refGraph.runFromDef(id, val, referenceGraph)
+            for(const [[id, val], span] of defs) refGraph.runFromDef(id, span, val, referenceGraph)
         }
     }
     return refGraph

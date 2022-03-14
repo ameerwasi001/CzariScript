@@ -24,7 +24,7 @@ const removeBuiltIns = (topLevels: TopLevel[]): TopLevel[] => {
             const vals = topLevel.val
             const newTopLevel: TopLevel = {
                 type: "LetRecDef", 
-                val: vals.filter(([n, _]) => !(BUILT_IN_STRINGS.hasOwnProperty(n)))
+                val: vals.filter(([[n, _1], _2]) => !(BUILT_IN_STRINGS.hasOwnProperty(n)))
             }
             newTopLevels.push(newTopLevel)
         }

@@ -362,23 +362,23 @@ class Parser {
         this.advance()
         while(this.currentTok.type == "Newline") this.advance()
         const exprs = this.parseImperative(() => this.currentTok.type == "Keyword" && this.currentTok.value == "end")
-        const defs: VarDefinition[] = []
+        const defs: Spanned<VarDefinition>[] = []
         for(const expr of exprs) {
             if(expr.type == "Right") throw SpannedError.new1(
                 `Syntax Error: Unexpected expression, expected a definition`,
                 expr.span
             )
-            defs.push([expr.ident, expr.val])
+            defs.push([[expr.ident, expr.val], expr.span])
         }
         return [{type: "LetRec", fields: [defs, expr]}, span]
     }
 
     parseTopLevel(ends: () => boolean = () => this.currentTok.type == "Eof"): TopLevel[] {
         const exprs = this.parseImperative(ends)
-        const defs: [string, Expr][] = []
+        const defs: [[string, Expr], Span][] = []
         const evals: Expr[] = []
         for(const expr of exprs) {
-            if(expr.type == "Left") defs.push([expr.ident, expr.val])
+            if(expr.type == "Left") defs.push([[expr.ident, expr.val], expr.span])
             else evals.push(expr.val)
         }
         const expressions: TopLevel[] = evals.map(val => { return {type: "Expr", val} })

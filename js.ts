@@ -61,8 +61,8 @@ function exprToJS(expr: Expr): string {
         return `(((${id}) => { return ${exprToJS(expr1)} })(${exprToJS(valExpr)}))`
     } else if (expr.type == "LetRec") {
         const [varDefinitions, expr1] = expr.fields
-        const decls = varDefinitions.map(([id, _]) => `let ${id};\n`).join("")
-        const defs = varDefinitions.map(([id, val]) => `${id} = ${exprToJS(val)};\n`).join("")
+        const decls = varDefinitions.map(([[id, _1], _2]) => `let ${id};\n`).join("")
+        const defs = varDefinitions.map(([[id, val], _]) => `${id} = ${exprToJS(val)};\n`).join("")
         const all = `${decls}\n${defs}\nreturn ${exprToJS(expr1)}`.split("\n").map(x => "\t" + x).join("\n")
         return `(() => {\n${all}\n})()`
     } else if (expr.type == "Literal") {
@@ -99,8 +99,8 @@ const topLevelToJs = (topLevel: TopLevel): string => {
         const [id, expr] = topLevel.val
         return `const ${id} = ${exprToJS(expr)}`
     } else 
-        return topLevel.val.map(([id, _]) => `let ${id};\n`).join("") + 
-            topLevel.val.map(([id, expr]) => `${id} = ${exprToJS(expr)};\n`).join("")
+        return topLevel.val.map(([[id, _1], _2]) => `let ${id};\n`).join("") + 
+            topLevel.val.map(([[id, expr], _]) => `${id} = ${exprToJS(expr)};\n`).join("")
 }
 
 const topLevelsToJs = (topLevels: TopLevel[]) => 
