@@ -129,6 +129,10 @@ class SpannedError {
         return new SpannedError([p1, p2])
     }
 
+    static newN(xs: [HasToString, Span][]): SpannedError {
+        return new SpannedError(xs.map(([str, span]) => [str.toString(), span]))
+    }
+
     print(sm: SpanManager){
         let out = "";
         for (const [msg, span] of this.pairs) {

@@ -283,9 +283,14 @@ const topLevelGraph = (topLevels: TopLevel[]): RefGraph => {
     return refGraph
 }
 
+const ensureAcyclicProgram = (topLevels: TopLevel[]) => {
+    const graph = topLevelGraph(topLevels)
+    graph.ensureAcyclic()
+}
+
 export type { 
     Literal, Op, OpType, VarDefinition, 
     LetPattern, MatchPattern, Expr, 
     Readability, TopLevel
 }
-export { cloneExpr, exprToString, topLevelGraph }
+export { cloneExpr, exprToString, ensureAcyclicProgram }

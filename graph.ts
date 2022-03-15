@@ -1,22 +1,4 @@
-import { Span } from "./spans.ts"
-
-class Graph {
-    dict: Record<string, Set<string>>
-
-    constructor() {
-        this.dict = {}
-    }
-
-    addEdge(k: string, v: string) {
-        if(this.dict.hasOwnProperty(k)) this.dict[k].add(v)
-        else this.dict[k] = new Set([v])
-    }
-
-    isAdjacent(a: string, b: string) {
-        if(!(this.dict.hasOwnProperty(a))) return false
-        return this.dict[a].has(b)
-    }
-}
+import { Span, SpannedError } from "./spans.ts"
 
 class RefGraph {
     def: string
@@ -45,11 +27,6 @@ class RefGraph {
         else this.dict[this.def] = new Set([v])
     }
 
-    isAdjacent(a: string, v: string) {
-        if(!(this.dict.hasOwnProperty(a))) return false
-        return this.dict[a].has(v)
-    }
-
     runFromDef<A, B>(currentDef: string, span: Span, a: A, f: (_1: A, _2: RefGraph) => B): B {
         this.spans[currentDef] = span
         const oldDef = this.def
@@ -58,6 +35,40 @@ class RefGraph {
         this.def = oldDef
         return res
     }
+
+    ensureAcyclic() {
+        const self = this
+        const err = (cycle: Set<string>, currPoint: string) => {
+            const cyclePoints: string[] = []
+            let startAdding = false
+            for(const cyclePoint of cycle) {
+                if(cyclePoint == currPoint) startAdding = true
+                if(startAdding) cyclePoints.push(cyclePoint)
+            }
+            return `${cyclePoints.join(" -> ")} -> ${currPoint}`
+        }
+
+        function go(point: string, visiting: Set<string>) {
+            var points = self.dict[point]
+            if(points == null || points == undefined) return
+            for(const newPoint of points) {
+                if(visiting.has(newPoint)) {
+                    throw SpannedError.newN(
+                        [[`${err(visiting, newPoint)} is a cycle`, self.spans[newPoint]] as [string, Span]].concat(
+                            [...visiting].map((str): [string, Span] => [``, self.spans[str]])
+                        )
+                    )
+                }
+                visiting.add(newPoint);
+                go(newPoint, visiting);
+                visiting.delete(newPoint);
+            }
+        }
+
+        for(const point in this.dict) {
+            go(point, new Set())
+        }
+    }
 }
 
-export { Graph, RefGraph }
+export { RefGraph }

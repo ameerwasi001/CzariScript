@@ -397,7 +397,9 @@ const checkTopLevel = (engine: TypeCheckerCore, bindings: Bindings, ast: TopLeve
         const [name, varExpr] = ast.val
         const varScheme = checkLet(engine, bindings, varExpr)
         bindings.insert_scheme(name, varScheme)
-    } else return checkLetRecDefs(engine, bindings, ast.val)
+    } else {
+        return checkLetRecDefs(engine, bindings, ast.val)
+    }
 }
 
 class TypeckState {
