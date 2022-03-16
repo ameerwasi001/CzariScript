@@ -273,19 +273,25 @@ function referenceGraph(expr: Expr, graph: RefGraph) {
 }
 
 const topLevelGraph = (topLevels: TopLevel[]): RefGraph => {
+    let n = 0
     const refGraph = new RefGraph()
     for(const topLevel of topLevels) {
         if(topLevel.type == "LetRecDef") {
             const defs = topLevel.val
-            for(const [[id, val], span] of defs) refGraph.runFromDef(id, span, val, referenceGraph)
+            for(const [[id, val], span] of defs) {
+                refGraph.register(id, n)
+                refGraph.runFromDef(id, span, val, referenceGraph)
+                n++
+            }
         }
     }
     return refGraph
 }
 
-const ensureAcyclicProgram = (topLevels: TopLevel[]) => {
+const programGraphAnalysis = (topLevels: TopLevel[]) => {
     const graph = topLevelGraph(topLevels)
     graph.ensureAcyclic()
+    graph.ensureDefinitions()
 }
 
 export type { 
@@ -293,4 +299,4 @@ export type {
     LetPattern, MatchPattern, Expr, 
     Readability, TopLevel
 }
-export { cloneExpr, exprToString, ensureAcyclicProgram }
+export { cloneExpr, exprToString, programGraphAnalysis }

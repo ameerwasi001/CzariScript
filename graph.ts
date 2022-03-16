@@ -3,6 +3,7 @@ import { Span, SpannedError } from "./spans.ts"
 class RefGraph {
     def: string
     dict: Record<string, Set<string>>
+    defRelativePosition: Record<string, number>
     spans: Record<string, Span>
     unincludeables: Set<string>
 
@@ -10,7 +11,12 @@ class RefGraph {
         this.def = ""
         this.unincludeables = new Set()
         this.spans = {}
+        this.defRelativePosition = {}
         this.dict = {}
+    }
+
+    register(v: string, n: number) {
+        this.defRelativePosition[v] = n
     }
 
     withNoneOf<A, B>(defs: Set<string>, a: A, f: (_1: A, _2: RefGraph) => B): B {
@@ -67,6 +73,25 @@ class RefGraph {
 
         for(const point in this.dict) {
             go(point, new Set())
+        }
+    }
+
+    ensureDefinitions() {
+        for(const k in this.dict) {
+            const vs = this.dict[k]
+            const pos = this.defRelativePosition[k]
+            for(const v of vs) {
+                if (this.defRelativePosition[v] == null || this.defRelativePosition[v] == undefined) SpannedError.new1(
+                    `Undefined variable '${v}'`,
+                    this.spans[v]
+                )
+                if (this.defRelativePosition[v] > pos) throw SpannedError.new2(
+                    `'${v}' is referenced in ${k} before definition`,
+                    this.spans[k],
+                    "\nwhich is found here",
+                    this.spans[v]
+                )
+            }
         }
     }
 }
