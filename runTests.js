@@ -1,5 +1,6 @@
 import * as reachabilityModule from "./reachability.ts"
 import * as typeChkModule from "./typeCheck.ts"
+import * as graphModule from "./graph.ts"
 
 const test = modules => {
     for(const module of modules) {
@@ -7,4 +8,4 @@ const test = modules => {
     }
 }
 
-test([reachabilityModule, typeChkModule])
+test([reachabilityModule, typeChkModule, graphModule])
