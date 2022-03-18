@@ -1,5 +1,6 @@
 import { println, ifThenElse, createPrototype, makeCase, matchCases, Eq__AnyCmp, Neq_AnyCmp } from "./runtime.js";
 
+;
 let n;
 let name;
 let x;

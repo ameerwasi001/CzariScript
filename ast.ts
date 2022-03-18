@@ -214,7 +214,9 @@ function letPatternReferenceGraph(pat: LetPattern, graph: RefGraph): Set<string>
 const collectTopLevelDefinitions = (topLevels: TopLevel[]): Set<string> => {
     const defs = new Set<string>()
     for(const topLevel of topLevels) {
-        if(topLevel.type == "LetRecDef") defs.add(topLevel.val[0][0][0])
+        if(topLevel.type == "LetRecDef") {
+            topLevel.val.forEach(([[def, _1], _2]) => defs.add(def))
+        }
         else if(topLevel.type == "LetDef") defs.add(topLevel.val[0])
     }
     return defs

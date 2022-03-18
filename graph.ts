@@ -1,4 +1,5 @@
 import { Span, SpannedError } from "./spans.ts"
+import { assert_array_eq } from "./utils.ts"
 
 class RefGraph {
     def: string
@@ -94,6 +95,73 @@ class RefGraph {
             }
         }
     }
+
+    topologicalSort() {
+        const self = this
+        function go(start: string, path: Set<string>, order: Set<string>): Set<string> {
+            path.add(start)
+            for(const edge of self.dict[start]) {
+                if(!(path.has(edge))) go(edge, path, order)
+            }
+            order.add(start)
+            return path
+        }
+
+        const order = new Set<string>()
+        for(const vertex in this.dict) {
+            const edges = this.dict[vertex]
+            go(vertex, new Set(), order)
+            for(const edge of edges) {
+                go(edge, new Set(), order)
+            }
+        }
+        return order
+    }
 }
 
-export { RefGraph }
+const test1 = () => {
+    const graph = new RefGraph()
+    graph.dict = {
+        "a": new Set(["b", "c"]),
+        "b": new Set(["d", "c"]),
+        "d": new Set(["c"]),
+        "c": new Set([])
+    }
+    try {
+        graph.ensureAcyclic()
+    } catch {
+        throw "Failed Test: test1 graph should be acyclic"
+    }
+    
+}
+
+const test2 = () => {
+    const graph = new RefGraph()
+    graph.dict = {
+        "a": new Set(["b", "c"]),
+        "b": new Set(["d", "c"]),
+        "d": new Set(["c"]),
+        "c": new Set(["a"])
+    }
+    try {
+        graph.ensureAcyclic()
+    } catch {return}
+    throw `Test Failed: test2 should contain cycles`    
+}
+
+const test3 = () => {
+    const graph = new RefGraph()
+    graph.dict = {
+        "b": new Set(["d", "e"]),
+        "d": new Set([]),
+        "a": new Set(["b", "c", "d"]),
+        "c": new Set(["b", "d"]),
+        "e": new Set()
+    }
+    const order = graph.topologicalSort()
+    assert_array_eq([...order], ["d", "e", "b", "c", "a"])
+}
+
+const tests = [test1, test2, test3]
+
+export { RefGraph, tests }

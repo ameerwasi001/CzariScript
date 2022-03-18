@@ -357,11 +357,11 @@ class Lexer {
         ],
     ]
 
-    constructor(source: string){
+    constructor(source: string, spanManager: SpanManager | null = null){
         this.index = -1
         this.source = source
         this.currentChar = ""
-        this.spanManager = new SpanManager()
+        this.spanManager = spanManager == null ? new SpanManager() : spanManager
         this.spanMaker = new SpanMaker(this.spanManager, 0, new Map())
         this.spanManager.addSource(source)
         this.advance()

@@ -3,6 +3,7 @@ import { Token, Op } from "./token.ts"
 import { Span, Spanned, SpannedError } from "./spans.ts"
 import { TopLevel } from "./ast.ts"
 import { exprToString, LetPattern, MatchPattern } from "./ast.ts"
+import { intorduceBuiltIns } from "./builtIns.ts"
 
 const buildCall = (atoms: Spanned<Expr>[]) => {
     if (atoms[atoms.length-1]==undefined) throw "Impossible!"
@@ -57,17 +58,41 @@ class Parser {
         this.index = -1
         this.toks = toks
         this.advance()
-        this.currentTok = this.index > this.toks.length ? this.toks[this.toks.length - 1] : this.toks[this.index]
+        this.currentTok = this.index >= this.toks.length ? 
+            {type: "Eof", span: this.toks[this.toks.length-1].span} : 
+            this.toks[this.index]
+    }
+
+    updateToks() {
+        this.currentTok = this.index >= this.toks.length ? 
+            {type: "Eof", span: this.toks[this.toks.length-1].span} : 
+            this.toks[this.index]
     }
 
     advance(){
         this.index++
-        this.currentTok = this.index > this.toks.length ? this.toks[this.toks.length - 1] : this.toks[this.index]
+        this.updateToks()
     }
 
     revert(n: number){
         this.index = n
-        this.currentTok = this.index > this.toks.length ? this.toks[this.toks.length - 1] : this.toks[this.index]
+        this.updateToks()
+    }
+
+    introduceBuiltIns() {
+        let hasHitCurrentTok = false
+        let i = 0
+        const [before, after]: [Token[], Token[]] = [[], []]
+        for(const tok of this.toks) {
+            if(this.index == i) hasHitCurrentTok = true
+            if(hasHitCurrentTok) after.push(tok)
+            else before.push(tok)
+            i += 1
+        }
+        this.toks = [...before, ...intorduceBuiltIns(after)]
+        const index = this.index
+        this.advance()
+        this.revert(index)
     }
 
     binOp(
@@ -98,7 +123,14 @@ class Parser {
             currTok.type == "OpenParen"
     }
 
-    parseSeperated<A>(sep: string, start: string | null, ends: () => boolean, parser: () => A, postStart = () => {}){
+    parseSeperated<A>(
+        sep: string, 
+        start: string | null, 
+        ends: () => boolean, 
+        ender: () => void = () => this.advance(),
+        parser: () => A, 
+        postStart = () => {}
+    ){
         if(start != null && this.currentTok.type != start) throw SpannedError.new1(
             `Syntax Error: Unexpected token ${this.currentTok.type}, expected 'then'`,
             this.currentTok.span
@@ -107,12 +139,14 @@ class Parser {
         postStart()
         const ls: A[] = []
         if(ends()){
-            this.advance();
+            ender();
             return ls;
         }
         ls.push(parser())
         while(this.currentTok.type == sep){
-            while(this.currentTok.type == sep) this.advance();
+            while(this.currentTok.type == sep) {
+                this.advance()
+            }
             if(ends()) break
             ls.push(parser());
         }
@@ -120,7 +154,7 @@ class Parser {
             `Expected a sequence ending token, got ${this.currentTok.type}`,
             this.currentTok.span
         )
-        this.advance()
+        ender()
         return ls
     }
 
@@ -250,6 +284,7 @@ class Parser {
             "Comma",
             start,
             () => this.currentTok.type == end,
+            () => this.advance(),
             (): [Spanned<string>, Expr] => {
                 const tok = this.currentTok
                 const index = this.index
@@ -297,12 +332,13 @@ class Parser {
         return expr
     }
 
-    parseImperative(ends: () => boolean) {
+    parseImperative(ends: () => boolean, ender: () => void = () => this.advance()) {
         const exprs: ({type: "Left", ident: string, val: Expr, span: Span}|{type: "Right", val: Expr, span: Span})[] = 
             this.parseSeperated(
                 "Newline", 
                 null, 
-                ends, 
+                ends,
+                ender,
                 () => {
                     const tok = this.currentTok
                     if(tok.type == "Variable") {
@@ -373,7 +409,36 @@ class Parser {
         return [{type: "LetRec", fields: [defs, expr]}, span]
     }
 
-    parseTopLevel(ends: () => boolean = () => this.currentTok.type == "Eof"): TopLevel[] {
+    parseImports() {
+        let imports: [string, Span][] = []
+        this.parseSeperated(
+            "Newline", 
+            null, 
+            () => {
+                const index = this.index
+                let ans = true
+                while(this.currentTok.type == "Newline") this.advance()
+                ans = !(this.currentTok.type == "Keyword" && this.currentTok.value == "import")
+                this.revert(index)
+                return ans
+            },
+            () => {},
+            () => {
+                this.advance()
+                const tok = this.currentTok
+                if(tok.type != "Variable") throw SpannedError.new1(
+                    `Expected a variable, got ${this.currentTok.type}`,
+                    this.currentTok.span
+                )
+                imports.push([tok.value, this.currentTok.span])
+                this.advance()
+            }
+        )
+        return imports
+    }
+
+    parseTopLevel(ends: () => boolean = () => this.currentTok.type == "Eof"): [[string, Span][], TopLevel[]] {
+        const imports = this.parseImports()
         const exprs = this.parseImperative(ends)
         const defs: [[string, Expr], Span][] = []
         const evals: Expr[] = []
@@ -387,9 +452,9 @@ class Parser {
             const finals: TopLevel[] = []
             finals.push(definitions)
             for(const e of expressions) finals.push(e)
-            return finals
+            return [imports, finals]
         }
-        return expressions
+        return [imports, expressions]
     }
 
     parseLetPattern(): Spanned<LetPattern> {
@@ -405,6 +470,7 @@ class Parser {
                 "Comma",
                 this.currentTok.type,
                 () => this.currentTok.type == closer,
+                () => this.advance(),
                 (): [Spanned<string>, LetPattern] => {
                     const tok = this.currentTok
                     const index = this.index
@@ -492,6 +558,7 @@ class Parser {
             "Or",
             null,
             () => this.currentTok.type == "Keyword" && this.currentTok.value == "end",
+            () => this.advance(),
             (): [Spanned<MatchPattern>, Expr] => {
                 if(this.currentTok.type == "Or") this.advance()
                 const [[pat, patSpan], f] = this.parsePattern(i++)
