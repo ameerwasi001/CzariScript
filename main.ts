@@ -28,14 +28,16 @@ async function gatherASTs(
         fName: string, 
         spanManager: SpanManager, 
         asts: [SpanManager, TopLevel[]][],
+        arr: string[],
         graph: RefGraph,
     ) {
     const source = await readFile(fName)
-    const lexer = new Lexer(source, spanManager, Object.keys(graph.dict).length)
+    arr.push(fName)
+    const lexer = new Lexer(source, spanManager, arr.length)
     const toks = lexer.lex()
     const [imports, exprs] = new Parser(toks).parseTopLevel()
     spanManager.addSource(source)
-    asts.push([spanManager, modifyIdentifiersTopLevel(exprs, Object.keys(graph.dict).length, BUILT_IN_NAMES)])
+    asts.push([spanManager, modifyIdentifiersTopLevel(exprs, arr.length, BUILT_IN_NAMES)])
     for(const [importName, span] of imports) {
         graph.makeEdge(fName, `${importName}.bscr`)
         const existsFile = await exists(`${importName}.bscr`)
@@ -43,7 +45,7 @@ async function gatherASTs(
             `'${importName}.bscr' is not found`,
             span
         )
-        await gatherASTs(`${importName}.bscr`, spanManager, asts, graph)
+        await gatherASTs(`${importName}.bscr`, spanManager, asts, arr, graph)
     }
 }
 
@@ -52,7 +54,7 @@ const compile = async (fName: string) => {
     try {
         const exprs__: [SpanManager, TopLevel[]][] = []
         const graph = new RefGraph()
-        await gatherASTs(fName, spanManager, exprs__, graph)
+        await gatherASTs(fName, spanManager, exprs__, [], graph)
         const exprs_: TopLevel[] = exprs__.map(([_, x]) => x).flat()
         const [_, builtIns] = new Parser(intorduceBuiltIns()).parseTopLevel()
         const exprs = [...builtIns, ...exprs_]
