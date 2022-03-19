@@ -11,6 +11,8 @@ const BUILT_IN_TOKENS: Token[] = dictToArray(BUILT_IN_STRINGS).map(
     ([name, source]) => removeLast(new Lexer(name + " = " + source).lex())
 ).flat(1)
 
+const BUILT_IN_NAMES: Set<string> = new Set(Object.keys(BUILT_IN_STRINGS))
+
 const intorduceBuiltIns = (toks: Token[] = []): Token[] => [...BUILT_IN_TOKENS, ...toks]
 
 const removeBuiltIns = (topLevels: TopLevel[]): TopLevel[] => {
@@ -32,4 +34,4 @@ const removeBuiltIns = (topLevels: TopLevel[]): TopLevel[] => {
     return newTopLevels
 }
 
-export { BUILT_IN_STRINGS, BUILT_IN_TOKENS, intorduceBuiltIns, removeBuiltIns }
+export { BUILT_IN_STRINGS, BUILT_IN_NAMES, BUILT_IN_TOKENS, intorduceBuiltIns, removeBuiltIns }

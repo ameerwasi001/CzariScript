@@ -34,6 +34,11 @@ class RefGraph {
         else this.dict[this.def] = new Set([v])
     }
 
+    makeEdge(k: string, v: string) {
+        if(this.dict.hasOwnProperty(k)) this.dict[k].add(v)
+        else this.dict[k] = new Set([v])
+    }
+
     runFromDef<A, B>(currentDef: string, span: Span, a: A, f: (_1: A, _2: RefGraph) => B): B {
         this.spans[currentDef] = span
         const oldDef = this.def

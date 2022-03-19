@@ -105,7 +105,7 @@ function cloneExpr(expr: Expr): Expr {
         return {type: "Match", fields: [cloneExpr(expr1), xs.map(([spannedMatch, expr]) => [cloneSpannedMatchPattern(spannedMatch), cloneExpr(expr)]), span]}
     } else if (expr.type == "NewRef") {
         const [expr1, span] = expr.fields
-        return {type: "NewRef", fields: [expr1, span]}
+        return {type: "NewRef", fields: [cloneExpr(expr1), span]}
     } else if (expr.type == "Record") {
         const [maybeExpr, xs, span] = expr.fields
         const expr1 = maybeExpr == null ? null : cloneExpr(maybeExpr)
@@ -121,6 +121,103 @@ function cloneExpr(expr: Expr): Expr {
         const v = expr.field
         return {type: "Variable", field: cloneSpannedString(v)}
     }
+}
+
+const  modifyIdentifiersMatchExpr =  (pat: MatchPattern, modNum: number) : MatchPattern => {
+    if (pat.type == "Case") return {type: "Case", val: [pat.val[0], `modNum__${modNum}__${pat.val[1]}`]}
+    else return {type: "Wildcard", val: `modNum__${modNum}__${pat.val}`}
+}
+
+function modifyIndentifiersSpannedExpr(spannedExpr: Spanned<Expr>, modNum: number, builtIns: Set<string>): [Expr, Span] {
+    const [expr, span] = spannedExpr
+    return [modifyIdentifiers(expr, modNum, builtIns), span]
+}
+
+const modifyIndentifiersVarDefinition = (def: VarDefinition, modNum: number, builtIns: Set<string>): VarDefinition => {
+    const [str, expr] = def
+    return [`modNum__${modNum}__${str}`, modifyIdentifiers(expr, modNum, builtIns)]
+}
+
+function modifyIdentifiersLetPattern(letPattern: LetPattern, modNum: number, builtIns: Set<string>): LetPattern {
+    if (letPattern.type == "Var") return {type: "Var", val: `modNum__${modNum}__${letPattern.val}`}
+    else return {
+        type: "Record", 
+        val: letPattern.val.map(
+            ([[string, span], letPat]: [[string, Span], LetPattern]) => 
+                [[string, span], modifyIdentifiersLetPattern(letPat, modNum, builtIns)]
+        )
+    }
+}
+
+function modifyIdentifiers(expr: Expr, modNum: number, builtIns: Set<string>): Expr {
+    if (expr.type == "BinOp") {
+        const [spannedExpr1, spannedExpr2, opType, op, span] = expr.fields
+        return {type: "BinOp", fields: [modifyIndentifiersSpannedExpr(spannedExpr1, modNum, builtIns), modifyIndentifiersSpannedExpr(spannedExpr2, modNum, builtIns), opType, op, span]}
+    } else if (expr.type == "Call") {
+        const [expr1, expr2, span] = expr.fields
+        return {type: "Call", fields: [modifyIdentifiers(expr1, modNum, builtIns), modifyIdentifiers(expr2, modNum, builtIns), span]}
+    } else if (expr.type == "Case") {
+        const [spannedString, newExpr] = expr.fields
+        return {type: "Case", fields: [spannedString, modifyIdentifiers(newExpr, modNum, builtIns)]}
+    } else if (expr.type == "FieldAccess") {
+        const [expr1, str, span] = expr.fields
+        return {type: "FieldAccess", fields: [modifyIdentifiers(expr1, modNum, builtIns), str, span]}
+    } else if (expr.type == "FuncDef") {
+        const [[argPattern, bodyExpr], span] = expr.fields
+        return {type: "FuncDef", fields: [[modifyIdentifiersLetPattern(argPattern, modNum, builtIns), modifyIdentifiers(bodyExpr, modNum, builtIns)], span] }
+    } else if (expr.type == "If") {
+        const [spannedExpr, expr1, expr2] = expr.fields
+        return {type: "If", fields: [modifyIndentifiersSpannedExpr(spannedExpr, modNum, builtIns), modifyIdentifiers(expr1, modNum, builtIns), modifyIdentifiers(expr2, modNum, builtIns)]}
+    } else if (expr.type == "Let") {
+        const [varDefinition, expr1] = expr.fields
+        return {type: "Let", fields: [modifyIndentifiersVarDefinition(varDefinition, modNum, builtIns), modifyIdentifiers(expr1, modNum, builtIns)]}
+    } else if (expr.type == "LetRec") {
+        const [varDefinitions, expr1] = expr.fields
+        return {type: "LetRec", fields: [varDefinitions.map(([def, span]) => [modifyIndentifiersVarDefinition(def, modNum, builtIns), span]), modifyIdentifiers(expr1, modNum, builtIns)]}
+    } else if (expr.type == "Literal") {
+        const [literal, spannedString] = expr.fields
+        return {type: "Literal", fields: [literal, spannedString]}
+    } else if (expr.type == "Match") {
+        const [expr1, xs, span] = expr.fields
+        return {type: "Match", fields: [modifyIdentifiers(expr1, modNum, builtIns), xs.map(([[match_, span], expr]) => [[modifyIdentifiersMatchExpr(match_, modNum), span], modifyIdentifiers(expr, modNum, builtIns)]), span]}
+    } else if (expr.type == "NewRef") {
+        const [expr1, span] = expr.fields
+        return {type: "NewRef", fields: [modifyIdentifiers(expr1, modNum, builtIns), span]}
+    } else if (expr.type == "Record") {
+        const [maybeExpr, xs, span] = expr.fields
+        const expr1 = maybeExpr == null ? null : modifyIdentifiers(maybeExpr, modNum, builtIns)
+        const xs1 = xs.map(([spannedString, expr]) : [Spanned<string>, Expr] => [spannedString, modifyIdentifiers(expr, modNum, builtIns)])
+        return {type: "Record", fields: [expr1, xs1, span]}
+    } else if (expr.type == "RefGet") {
+        const spannedExpr = expr.field
+        return {type: "RefGet", field: modifyIndentifiersSpannedExpr(spannedExpr, modNum, builtIns)}
+    } else if (expr.type == "RefSet") {
+        const [spannedExpr, expr1] = expr.fields
+        return {type: "RefSet", fields: [modifyIndentifiersSpannedExpr(spannedExpr, modNum, builtIns), modifyIdentifiers(expr1, modNum, builtIns)]}
+    } else {
+        const [v, span] = expr.field
+        const str = builtIns.has(v) ? v : `modNum__${modNum}__${v}`
+        return {type: "Variable", field: [str, span]}
+    }
+}
+
+const modifyIdentifiersTopLevel = (topLevels: TopLevel[], modNum: number, builtIns: Set<string>): TopLevel[] => {
+    const newTopLevels: TopLevel[] = []
+    for(const topLevel of topLevels) {
+        if(topLevel.type == "Expr") newTopLevels.push({type: "Expr", val: modifyIdentifiers(topLevel.val, modNum, builtIns)})
+        else if(topLevel.type == "LetDef") {
+            const [n, expr] = topLevel.val
+            newTopLevels.push({type: "LetDef", val: [`modNum__${modNum}__${n}`, modifyIdentifiers(expr, modNum, builtIns)]})
+        } else if(topLevel.type == "LetRecDef") {
+            const vals = topLevel.val
+            const newTopLevel: TopLevel = {
+                type: "LetRecDef", 
+                val: vals.map(([[n, expr], span]) => [[`modNum__${modNum}__${n}`, modifyIdentifiers(expr, modNum, builtIns)], span])
+            }
+            newTopLevels.push(newTopLevel)
+        }
+    }
+    return newTopLevels
 }
 
 const patternToString = (pat: MatchPattern) => {
@@ -311,4 +408,4 @@ export type {
     LetPattern, MatchPattern, Expr, 
     Readability, TopLevel
 }
-export { cloneExpr, exprToString, programGraphAnalysis }
+export { cloneExpr, modifyIdentifiersTopLevel, exprToString, programGraphAnalysis }
