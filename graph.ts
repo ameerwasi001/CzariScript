@@ -105,8 +105,10 @@ class RefGraph {
         const self = this
         function go(start: string, path: Set<string>, order: Set<string>): Set<string> {
             path.add(start)
-            for(const edge of self.dict[start]) {
-                if(!(path.has(edge))) go(edge, path, order)
+            if(self.dict[start] != undefined) {
+                for(const edge of self.dict[start]) {
+                    if(!(path.has(edge))) go(edge, path, order)
+                }
             }
             order.add(start)
             return path

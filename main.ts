@@ -27,7 +27,7 @@ const exists = async (filename: string): Promise<boolean> => {
 async function gatherASTs(
         fName: string, 
         spanManager: SpanManager, 
-        asts: [SpanManager, TopLevel[]][],
+        asts: Record<string, [SpanManager, TopLevel[]]>,
         arr: string[],
         graph: RefGraph,
     ) {
@@ -36,8 +36,7 @@ async function gatherASTs(
     const lexer = new Lexer(source, spanManager, arr.length)
     const toks = lexer.lex()
     const [imports, exprs] = new Parser(toks).parseTopLevel()
-    spanManager.addSource(source)
-    asts.push([spanManager, modifyIdentifiersTopLevel(exprs, arr.length, BUILT_IN_NAMES)])
+    asts[fName] = [spanManager, modifyIdentifiersTopLevel(exprs, arr.length, BUILT_IN_NAMES)]
     for(const [importName, span] of imports) {
         graph.makeEdge(fName, `${importName}.bscr`)
         const existsFile = await exists(`${importName}.bscr`)
@@ -52,10 +51,10 @@ async function gatherASTs(
 const compile = async (fName: string) => {
     const spanManager = new SpanManager()
     try {
-        const exprs__: [SpanManager, TopLevel[]][] = []
+        const exprs__: Record<string, [SpanManager, TopLevel[]]> = {}
         const graph = new RefGraph()
         await gatherASTs(fName, spanManager, exprs__, [], graph)
-        const exprs_: TopLevel[] = exprs__.map(([_, x]) => x).flat()
+        const exprs_: TopLevel[] = [...graph.topologicalSort()].map(s => exprs__[s][1]).flat()
         const [_, builtIns] = new Parser(intorduceBuiltIns()).parseTopLevel()
         const exprs = [...builtIns, ...exprs_]
         new TypeckState().checkScript(exprs)

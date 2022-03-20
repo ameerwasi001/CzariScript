@@ -1,6 +1,9 @@
 import { println, ifThenElse, createPrototype, makeCase, matchCases, Eq__AnyCmp, Neq_AnyCmp } from "./runtime.js";
 
 ;
+let modNum__2__arrow;
+modNum__2__arrow = 4;
+;
 let modNum__1__n;
 let modNum__1__name;
 let modNum__1__x;
@@ -35,6 +38,3 @@ modNum__1__area = ((modNum__1__shape) => { return matchCases(modNum__1__shape, [
 (((modNum__1__access)(createPrototype({}, {x: createPrototype({}, {y: createPrototype({}, {0: 4, 1: 7, 2: "XYZ"}), text: "No!"})}))) + 4);
 ((println)(((modNum__1__area)(makeCase("Square", createPrototype(modNum__1__obj, {n: modNum__1__n}))))));
 (((modNum__1__double) => { return ((println)((((((modNum__1____accessObj) => { return (((modNum__1____accessObj["getX"]))(modNum__1____accessObj)) })(modNum__1__obj)))(((modNum__1__double)(1)))))) })(((modNum__1__n) => { return (modNum__1__n * 2) })));
-let modNum__2__arrow;
-modNum__2__arrow = 4;
-;

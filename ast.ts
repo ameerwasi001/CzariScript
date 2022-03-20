@@ -123,22 +123,22 @@ function cloneExpr(expr: Expr): Expr {
     }
 }
 
-const  modifyIdentifiersMatchExpr =  (pat: MatchPattern, modNum: number) : MatchPattern => {
+const  modifyIdentifiersMatchExpr =  <A>(pat: MatchPattern, modNum: A) : MatchPattern => {
     if (pat.type == "Case") return {type: "Case", val: [pat.val[0], `modNum__${modNum}__${pat.val[1]}`]}
     else return {type: "Wildcard", val: `modNum__${modNum}__${pat.val}`}
 }
 
-function modifyIndentifiersSpannedExpr(spannedExpr: Spanned<Expr>, modNum: number, builtIns: Set<string>): [Expr, Span] {
+function modifyIndentifiersSpannedExpr<A>(spannedExpr: Spanned<Expr>, modNum: A, builtIns: Set<string>): [Expr, Span] {
     const [expr, span] = spannedExpr
     return [modifyIdentifiers(expr, modNum, builtIns), span]
 }
 
-const modifyIndentifiersVarDefinition = (def: VarDefinition, modNum: number, builtIns: Set<string>): VarDefinition => {
+const modifyIndentifiersVarDefinition = <A>(def: VarDefinition, modNum: A, builtIns: Set<string>): VarDefinition => {
     const [str, expr] = def
     return [`modNum__${modNum}__${str}`, modifyIdentifiers(expr, modNum, builtIns)]
 }
 
-function modifyIdentifiersLetPattern(letPattern: LetPattern, modNum: number, builtIns: Set<string>): LetPattern {
+function modifyIdentifiersLetPattern<A>(letPattern: LetPattern, modNum: A, builtIns: Set<string>): LetPattern {
     if (letPattern.type == "Var") return {type: "Var", val: `modNum__${modNum}__${letPattern.val}`}
     else return {
         type: "Record", 
@@ -149,7 +149,7 @@ function modifyIdentifiersLetPattern(letPattern: LetPattern, modNum: number, bui
     }
 }
 
-function modifyIdentifiers(expr: Expr, modNum: number, builtIns: Set<string>): Expr {
+function modifyIdentifiers<A>(expr: Expr, modNum: A, builtIns: Set<string>): Expr {
     if (expr.type == "BinOp") {
         const [spannedExpr1, spannedExpr2, opType, op, span] = expr.fields
         return {type: "BinOp", fields: [modifyIndentifiersSpannedExpr(spannedExpr1, modNum, builtIns), modifyIndentifiersSpannedExpr(spannedExpr2, modNum, builtIns), opType, op, span]}
@@ -201,7 +201,7 @@ function modifyIdentifiers(expr: Expr, modNum: number, builtIns: Set<string>): E
     }
 }
 
-const modifyIdentifiersTopLevel = (topLevels: TopLevel[], modNum: number, builtIns: Set<string>): TopLevel[] => {
+const modifyIdentifiersTopLevel = <A>(topLevels: TopLevel[], modNum: A, builtIns: Set<string>): TopLevel[] => {
     const newTopLevels: TopLevel[] = []
     for(const topLevel of topLevels) {
         if(topLevel.type == "Expr") newTopLevels.push({type: "Expr", val: modifyIdentifiers(topLevel.val, modNum, builtIns)})
