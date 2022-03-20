@@ -23,6 +23,10 @@ const exists = async (filename: string): Promise<boolean> => {
     }
 }
 
+const rsplit = function(self: string, sep: string, maxsplit = 1) {
+    var split = self.split(sep);
+    return maxsplit ? [ split.slice(0, -maxsplit).join(sep) ].concat(split.slice(-maxsplit)) : split;
+}
 
 async function gatherASTs(
         fName: string, 
@@ -36,7 +40,8 @@ async function gatherASTs(
     const lexer = new Lexer(source, spanManager, arr.length)
     const toks = lexer.lex()
     const [imports, exprs] = new Parser(toks).parseTopLevel()
-    asts[fName] = [spanManager, modifyIdentifiersTopLevel(exprs, arr.length, BUILT_IN_NAMES)]
+    const woExtension = rsplit(arr[arr.length-1], ".").slice(0, -1).join(".")
+    asts[fName] = [spanManager, modifyIdentifiersTopLevel(exprs, woExtension, BUILT_IN_NAMES)]
     for(const [importName, span] of imports) {
         graph.makeEdge(fName, `${importName}.bscr`)
         const existsFile = await exists(`${importName}.bscr`)
