@@ -1,1 +1,5 @@
-arrow = 4
+arrow = 4;
+add a b = a+b;
+sub a b = a-b;
+mult a b = a*b;
+div a b = a/b;

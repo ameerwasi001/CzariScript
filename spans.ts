@@ -76,6 +76,7 @@ class SpanManager {
                 found = false
             }
         }
+        if(col < 1) col = 1
         out += `In line no: ${lineNo.toString()}, on coulmn ${(col+1).toString()}\n`
         out += lines.join("\n")
         out += " ".repeat(col)

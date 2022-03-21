@@ -38,7 +38,7 @@ const createExprLets = (defs: [string, Expr, Span][], counter: number, span: Spa
     const def: [string, Expr, Span]  = 
         defs[defs.length-1] == undefined
             ? [
-                `__letVar${counter}`, 
+                `___letVar${counter}`, 
                 {type: "Literal", fields: ["Null", ["null", span]]}, 
                 span
             ] : defs[defs.length-1]
@@ -388,7 +388,7 @@ class Parser {
             if(expr.type == "Left") defs.push([expr.ident, expr.val, expr.span])
             else {
                 counter += 1
-                defs.push([`__letVar${counter}`, expr.val, expr.span])
+                defs.push([`___letVar${counter}`, expr.val, expr.span])
             }
         }
         return createExprLets(defs, counter, this.currentTok.span)
@@ -518,12 +518,12 @@ class Parser {
                         type: "Call", 
                         fields: [
                             {type: "FuncDef", fields: [[pat, expr], span]},
-                            {type: "Variable", field: [`__matchVar${i}`, span]},
+                            {type: "Variable", field: [`___matchVar${i}`, span]},
                             span
                         ]
                     }
                 }
-                return [[{type: "Case", val: [ctor, `__matchVar${i}`]}, tok.span], lambdaExpr]
+                return [[{type: "Case", val: [ctor, `___matchVar${i}`]}, tok.span], lambdaExpr]
             }
         } else if(tok.type == "Variable") {
             const ident = tok.value
@@ -665,10 +665,10 @@ class Parser {
             const tok = this.currentTok
             const field = this.currentTok.value
             this.advance()
-            const ident: Expr = {type: "Variable", field: ["__accessObj", tok.span]}
+            const ident: Expr = {type: "Variable", field: ["___accessObj", tok.span]}
             const access: Expr = {type: "FieldAccess", fields: [ident, field, tok.span]}
             const call: Expr = {type: "Call", fields: [access, ident, tok.span]}
-            const whole: Spanned<Expr> = [{type: "Let", fields: [["__accessObj", expr[0]], call]}, expr[1]]
+            const whole: Spanned<Expr> = [{type: "Let", fields: [["___accessObj", expr[0]], call]}, expr[1]]
             return whole
         } else return expr
     }

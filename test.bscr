@@ -31,4 +31,6 @@ area shape =
     | Circle cir -> 3.14 .* cir.r .* cir.r
     end;
 println (area (Square {obj with n: n}));
-let double n = n*2 in println (obj:getX (double 1))
+apply f a = f a;
+flip f x y =  f y x;
+let double n = n*2 in println (obj:getX (double ((apply (flip arith__div 4) arith__arrow))))
