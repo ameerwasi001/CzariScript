@@ -37,7 +37,7 @@ async function gatherASTs(
     ) {
     const source = await readFile(fName)
     arr.push(fName)
-    const lexer = new Lexer(source, spanManager, arr.length)
+    const lexer = new Lexer(source, spanManager, arr.length-1)
     const toks = lexer.lex()
     const [imports, exprs] = new Parser(toks).parseTopLevel()
     const woExtension = rsplit(arr[arr.length-1], ".").slice(0, -1).join(".")
@@ -59,7 +59,9 @@ const compile = async (fName: string) => {
         const exprs__: Record<string, [SpanManager, TopLevel[]]> = {}
         const graph = new RefGraph()
         await gatherASTs(fName, spanManager, exprs__, [], graph)
-        const exprs_: TopLevel[] = [...graph.topologicalSort()].map(s => exprs__[s][1]).flat()
+        const exprs_: TopLevel[] = Object.keys(exprs__).length == 1 ? 
+            exprs__[Object.keys(exprs__)[0]][1] :
+            [...graph.topologicalSort()].map(s => exprs__[s][1]).flat()
         const [_, builtIns] = new Parser(intorduceBuiltIns()).parseTopLevel()
         const exprs = [...builtIns, ...exprs_]
         new TypeckState().checkScript(exprs)

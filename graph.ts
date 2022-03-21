@@ -117,7 +117,7 @@ class RefGraph {
         const order = new Set<string>()
         for(const vertex in this.dict) {
             const edges = this.dict[vertex]
-            go(vertex, new Set(), order)
+            if(!(order.has(vertex))) go(vertex, new Set(), order)
             for(const edge of edges) {
                 go(edge, new Set(), order)
             }
