@@ -35,22 +35,22 @@ async function gatherASTs(
         arr: string[],
         graph: RefGraph,
     ) {
-    const source = await readFile(fName)
-    arr.push(fName)
-    const lexer = new Lexer(source, spanManager, arr.length-1)
-    const toks = lexer.lex()
-    const [imports, exprs] = new Parser(toks).parseTopLevel()
-    const woExtension = rsplit(arr[arr.length-1], ".").slice(0, -1).join(".")
-    asts[fName] = [spanManager, modifyIdentifiersTopLevel(exprs, woExtension, BUILT_IN_NAMES)]
-    for(const [importName, span] of imports) {
-        graph.makeEdge(fName, `${importName}.bscr`)
-        const existsFile = await exists(`${importName}.bscr`)
-        if(!existsFile) throw SpannedError.new1(
-            `'${importName}.bscr' is not found`,
-            span
-        )
-        await gatherASTs(`${importName}.bscr`, spanManager, asts, arr, graph)
-    }
+        const source = await readFile(fName)
+        arr.push(fName)
+        const lexer = new Lexer(source, spanManager, arr.length-1)
+        const toks = lexer.lex()
+        const [imports, exprs] = new Parser(toks).parseTopLevel()
+        const woExtension = rsplit(arr[arr.length-1], ".").slice(0, -1).join(".")
+        asts[fName] = [spanManager, modifyIdentifiersTopLevel(exprs, woExtension, BUILT_IN_NAMES)]
+        for(const [importName, span] of imports) {
+            graph.makeEdge(fName, `${importName}.bscr`)
+            const existsFile = await exists(`${importName}.bscr`)
+            if(!existsFile) throw SpannedError.new1(
+                `'${importName}.bscr' is not found`,
+                span
+            )
+            await gatherASTs(`${importName}.bscr`, spanManager, asts, arr, graph)
+        }
 }
 
 const compile = async (fName: string) => {

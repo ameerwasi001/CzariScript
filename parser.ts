@@ -437,9 +437,15 @@ class Parser {
         return imports
     }
 
-    parseTopLevel(ends: () => boolean = () => this.currentTok.type == "Eof"): [[string, Span][], TopLevel[]] {
+    parseTopLevel(): [[string, Span][], TopLevel[]] {
         const imports = this.parseImports()
-        const exprs = this.parseImperative(ends)
+        let tok = this.currentTok
+        const exprs = this.parseImperative(
+            () => {
+                tok = this.currentTok
+                return this.currentTok.type == "Eof" || (this.currentTok.type == "Keyword" && this.currentTok.value == "export")
+            }
+        )
         const defs: [[string, Expr], Span][] = []
         const evals: Expr[] = []
         for(const expr of exprs) {
@@ -448,13 +454,30 @@ class Parser {
         }
         const expressions: TopLevel[] = evals.map(val => { return {type: "Expr", val} })
         const definitions: TopLevel = {type: "LetRecDef", val: defs}
-        if(definitions.type == "LetRecDef" && definitions.val.length > 0) {
-            const finals: TopLevel[] = []
-            finals.push(definitions)
-            for(const e of expressions) finals.push(e)
-            return [imports, finals]
+        const finals: TopLevel[] = []
+        finals.push(definitions)
+        for(const e of expressions) finals.push(e)
+        if(tok.type == "Keyword" && tok.value == "export") {
+            const fields = this.parseSeperated(
+                "Comma", 
+                "OpenBrace", 
+                () => this.currentTok.type == "CloseBrace",
+                () => this.advance(),
+                (): [string, Expr] => {
+                    const tok = this.currentTok
+                    if(tok.type != "Variable") throw SpannedError.new1(
+                        ``,
+                        tok.span
+                    )
+                    this.advance()
+                    return [`exported__${tok.value}`, {type: "Variable", field: [tok.value, tok.span]}]
+                }
+            )
+            finals.push(
+                ...fields.map(([str, val]): TopLevel => { return {type: "LetDef", val: [str, val]}})
+            )
         }
-        return [imports, expressions]
+        return [imports, finals]
     }
 
     parseLetPattern(): Spanned<LetPattern> {
@@ -699,9 +722,10 @@ class Parser {
                 const attr = this.currentTok.value
                 this.advance()
                 val = [
-                    {type: "Variable", field: [`${moduleName}__${attr}`, tok.span]}, 
+                    {type: "Variable", field: [`${moduleName}__exported__${attr}`, tok.span]}, 
                     tok.span
-                ]}
+                ]
+            }
         } else if (tok.type == "Lambda"){
             const patterns: [LetPattern, Span][] = []
             this.advance()
