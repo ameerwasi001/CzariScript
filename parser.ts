@@ -684,10 +684,24 @@ class Parser {
             ]
         } else if (tok.type == "Variable") {
             this.advance()
-            val = [
+            const tok_ = this.currentTok
+            if(tok_.type != "Arrow") val = [
                 {type: "Variable", field: [tok.value, tok.span]}, 
                 tok.span
-            ]
+            ] 
+            else {
+                const moduleName = tok.value
+                this.advance()
+                if(this.currentTok.type != "Variable") throw SpannedError.new1(
+                    `Expected a variable, got ${this.currentTok.type}`,
+                    this.currentTok.span
+                )
+                const attr = this.currentTok.value
+                this.advance()
+                val = [
+                    {type: "Variable", field: [`${moduleName}__${attr}`, tok.span]}, 
+                    tok.span
+                ]}
         } else if (tok.type == "Lambda"){
             const patterns: [LetPattern, Span][] = []
             this.advance()

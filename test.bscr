@@ -33,4 +33,4 @@ area shape =
 println (area (Square {obj with n: n}));
 apply f a = f a;
 flip f x y =  f y x;
-let double n = n*2 in println (obj:getX (double ((apply (flip arith__div 4) arith__arrow))))
+let double n = n*2 in println (obj:getX (double ((apply (flip arith->div 4) arith->arrow))))

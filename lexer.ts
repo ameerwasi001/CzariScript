@@ -336,6 +336,10 @@ class Lexer {
                     self.advance()
                 }
                 const span = self.span(starter, self.index)
+                if (str.includes("__") && !(str.includes("___"))) throw SpannedError.new1(
+                    `"__" is reserved for compiler use`,
+                    span
+                )
                 if (str == "null") return {type: "Literal", literalType: "Null", value: "null", span}
                 else if (str == "true" || str == "false") return {type: "Literal", literalType: "Bool", value: str, span}
                 return {type: keywords.has(str) ? "Keyword" : "Variable", value: str, span}
