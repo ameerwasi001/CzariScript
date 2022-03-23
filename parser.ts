@@ -458,21 +458,30 @@ class Parser {
         finals.push(definitions)
         for(const e of expressions) finals.push(e)
         if(tok.type == "Keyword" && tok.value == "export") {
-            const fields = this.parseSeperated(
-                "Comma", 
-                "OpenBrace", 
-                () => this.currentTok.type == "CloseBrace",
-                () => this.advance(),
-                (): [string, Expr] => {
-                    const tok = this.currentTok
-                    if(tok.type != "Variable") throw SpannedError.new1(
-                        ``,
-                        tok.span
-                    )
-                    this.advance()
-                    return [`exported__${tok.value}`, {type: "Variable", field: [tok.value, tok.span]}]
-                }
-            )
+            let fields: [string, Expr][]
+            if(this.currentTok.type == "Op" && this.currentTok.op == "Mult") {
+                this.advance()
+                fields = defs.map(([[str, _1], span]): [string, Expr] => 
+                    [`exported__${str}`, {type: "Variable", field: [str, span]}]
+                )
+            } else {
+                fields = this.parseSeperated(
+                    "Comma", 
+                    "OpenBrace", 
+                    () => this.currentTok.type == "CloseBrace",
+                    () => this.advance(),
+                    (): [string, Expr] => {
+                        const tok = this.currentTok
+                        if(tok.type != "Variable") throw SpannedError.new1(
+                            ``,
+                            tok.span
+                        )
+                        this.advance()
+                        return [`exported__${tok.value}`, {type: "Variable", field: [tok.value, tok.span]}]
+                    }
+                )
+            }
+
             finals.push(
                 ...fields.map(([str, val]): TopLevel => { return {type: "LetDef", val: [str, val]}})
             )

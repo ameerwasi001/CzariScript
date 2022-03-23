@@ -1,4 +1,5 @@
 import arith;
+import funcs;
 
 n = 9+10*2;
 name = "Am" & "ee" & "r";
@@ -31,6 +32,4 @@ area shape =
     | Circle cir -> 3.14 .* cir.r .* cir.r
     end;
 println (area (Square {obj with n: n}));
-apply f a = f a;
-flip f x y =  f y x;
-let double n = n*2 in println (obj:getX (double ((apply (flip arith->div 4) arith->arrow))))
+let double n = n*2 in println (obj:getX (double ((funcs->apply (funcs->flip arith->div 4) arith->arrow))))
