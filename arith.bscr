@@ -1,13 +1,18 @@
+import funcs;
+
 arrow = 4;
 add a b = a+b;
 sub a b = a-b;
 mult a b = a*b;
 div a b = a/b;
-inc = add 1
+
+inc = add 1;
+dec = funcs->flip sub 1;
 
 export {
     arrow,
     inc,
+    dec,
     mult,
     div
 }

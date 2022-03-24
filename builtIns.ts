@@ -5,6 +5,7 @@ import { TopLevel } from "./ast.ts"
 
 const BUILT_IN_STRINGS: Record<string, string> = {
     println: "\\x -> x;",
+    toStr: "\\x -> \"\";"
 }
 
 const BUILT_IN_TOKENS: Token[] = dictToArray(BUILT_IN_STRINGS).map(

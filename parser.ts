@@ -333,7 +333,9 @@ class Parser {
     }
 
     parseImperative(ends: () => boolean, ender: () => void = () => this.advance()) {
-        const exprs: ({type: "Left", ident: string, val: Expr, span: Span}|{type: "Right", val: Expr, span: Span})[] = 
+        const exprs: ({type: "Left", ident: string, val: Expr, span: Span}
+            |{type: "Right", val: Expr, span: Span}
+            | {type: "Up", ident: string, val: string, span: Span})[] = 
             this.parseSeperated(
                 "Newline", 
                 null, 
@@ -341,6 +343,38 @@ class Parser {
                 ender,
                 () => {
                     const tok = this.currentTok
+                    if(tok.type == "Keyword" && tok.value == "type") {
+                        this.advance()
+                        const tok = this.currentTok
+                        if(tok.type != "Variable") throw SpannedError.new1(
+                            `Expected a variable with "\`", got ${tok.type}`,
+                            this.currentTok.span
+                        )
+                        if(!(tok.value.includes("`"))) throw SpannedError.new1(
+                            `Expected a variable with "\`", got ${tok.type}`,
+                            this.currentTok.span
+                        )
+                        const ident = tok.value
+                        this.advance()
+                        const tok$ = this.currentTok
+                        if(tok$.type != "Op") throw SpannedError.new1(
+                            `Expected an = operator, got ${this.currentTok.type}`,
+                            this.currentTok.span
+                        )
+                        if (tok$.op != "Eq") throw SpannedError.new1(
+                            `Expected an = operator, got ${tok$.op}`,
+                            this.currentTok.span
+                        )
+                        this.advance()
+                        if(this.currentTok.type != "Constructor") throw SpannedError.new1(
+                            `Expected a constructor, got ${this.currentTok.type}`,
+                            this.currentTok.span
+                        )
+                        const span = this.currentTok.span
+                        const val = this.currentTok.value
+                        this.advance()
+                        return {type: "Up", ident, val, span}
+                    }
                     if(tok.type == "Variable") {
                         const patterns: [LetPattern, Span][] = []
                         const index = this.index
@@ -386,6 +420,10 @@ class Parser {
         let counter = 0
         for(const expr of exprs) {
             if(expr.type == "Left") defs.push([expr.ident, expr.val, expr.span])
+            else if(expr.type == "Up") throw SpannedError.new1(
+                `Unexpected definition of a type ${expr.ident}`,
+                expr.span
+            )
             else {
                 counter += 1
                 defs.push([`___letVar${counter}`, expr.val, expr.span])
@@ -400,8 +438,8 @@ class Parser {
         const exprs = this.parseImperative(() => this.currentTok.type == "Keyword" && this.currentTok.value == "end")
         const defs: Spanned<VarDefinition>[] = []
         for(const expr of exprs) {
-            if(expr.type == "Right") throw SpannedError.new1(
-                `Syntax Error: Unexpected expression, expected a definition`,
+            if(expr.type == "Right" || expr.type == "Up") throw SpannedError.new1(
+                `Syntax Error: Unexpected expression or type alias, expected a definition`,
                 expr.span
             )
             defs.push([[expr.ident, expr.val], expr.span])
@@ -437,7 +475,7 @@ class Parser {
         return imports
     }
 
-    parseTopLevel(): [[string, Span][], TopLevel[]] {
+    parseTopLevel(): [[string, Span][], TopLevel[], Record<string, [string, Span]>] {
         const imports = this.parseImports()
         let tok = this.currentTok
         const exprs = this.parseImperative(
@@ -447,9 +485,11 @@ class Parser {
             }
         )
         const defs: [[string, Expr], Span][] = []
+        const aliases: [[string, string], Span][] = []
         const evals: Expr[] = []
         for(const expr of exprs) {
             if(expr.type == "Left") defs.push([[expr.ident, expr.val], expr.span])
+            else if(expr.type == "Up") aliases.push([[expr.ident, expr.val], expr.span])
             else evals.push(expr.val)
         }
         const expressions: TopLevel[] = evals.map(val => { return {type: "Expr", val} })
@@ -486,7 +526,9 @@ class Parser {
                 ...fields.map(([str, val]): TopLevel => { return {type: "LetDef", val: [str, val]}})
             )
         }
-        return [imports, finals]
+        const aliasMap: Record<string, [string, Span]> = {}
+        for(const [[k, v], span] of aliases) aliasMap[k] = [v, span]
+        return [imports, finals, aliasMap]
     }
 
     parseLetPattern(): Spanned<LetPattern> {
@@ -532,7 +574,7 @@ class Parser {
 
     parsePattern(i: number): [Spanned<MatchPattern>, (_: Expr) => Expr] {
         const tok = this.currentTok
-        if(tok.type == "Constructor") {
+        if(tok.type == "Constructor" || (tok.type == "Variable" && tok.value.includes("`"))) {
             const ctor = tok.value
             this.advance()
             if(this.currentTok.type != "Variable" && this.currentTok.type != "OpenBrace") throw SpannedError.new1(
@@ -714,27 +756,6 @@ class Parser {
                 {type: "Literal", fields: [tok.literalType, [tok.value, tok.span]]},
                 tok.span
             ]
-        } else if (tok.type == "Variable") {
-            this.advance()
-            const tok_ = this.currentTok
-            if(tok_.type != "Arrow") val = [
-                {type: "Variable", field: [tok.value, tok.span]}, 
-                tok.span
-            ] 
-            else {
-                const moduleName = tok.value
-                this.advance()
-                if(this.currentTok.type != "Variable") throw SpannedError.new1(
-                    `Expected a variable, got ${this.currentTok.type}`,
-                    this.currentTok.span
-                )
-                const attr = this.currentTok.value
-                this.advance()
-                val = [
-                    {type: "Variable", field: [`${moduleName}__exported__${attr}`, tok.span]}, 
-                    tok.span
-                ]
-            }
         } else if (tok.type == "Lambda"){
             const patterns: [LetPattern, Span][] = []
             this.advance()
@@ -800,12 +821,32 @@ class Parser {
                 }
             }
         }
-        else if(tok.type == "Constructor") {
+        else if(tok.type == "Constructor" || (tok.type == "Variable" && tok.value.includes("`"))) {
             this.advance()
             const [expr, _] = this.expr()
             return [{type: "Case", fields: [[tok.value, tok.span], expr]}, tok.span]
-        }
-        else if(tok.type == "At") {
+        } else if (tok.type == "Variable") {
+            this.advance()
+            const tok_ = this.currentTok
+            if(tok_.type != "Arrow") val = [
+                {type: "Variable", field: [tok.value, tok.span]}, 
+                tok.span
+            ] 
+            else {
+                const moduleName = tok.value
+                this.advance()
+                if(this.currentTok.type != "Variable") throw SpannedError.new1(
+                    `Expected a variable, got ${this.currentTok.type}`,
+                    this.currentTok.span
+                )
+                const attr = this.currentTok.value
+                this.advance()
+                val = [
+                    {type: "Variable", field: [`${moduleName}__exported__${attr}`, tok.span]}, 
+                    tok.span
+                ]
+            }
+        } else if(tok.type == "At") {
             this.advance()
             const [expr, span] = this.factor()
             val = [{type: "NewRef", fields: [expr, span]}, span]

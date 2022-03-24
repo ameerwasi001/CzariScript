@@ -73,9 +73,15 @@ function toString(obj) {
     return toStringByObj(obj, [])
 }
 
+const toStr = toString
+
 const println = a => {
     console.log(toString(a))
     return a
 }
 
-export { println, ifThenElse, createPrototype, makeCase, matchCases, Eq__AnyCmp, Neq_AnyCmp }
+export {
+    println, toStr, ifThenElse,
+    createPrototype, makeCase, matchCases,
+    Eq__AnyCmp, Neq_AnyCmp
+}

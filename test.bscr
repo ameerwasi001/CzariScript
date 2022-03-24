@@ -1,6 +1,8 @@
 import arith;
 import funcs;
 
+type sq` = Square;
+
 n = 9+10*2;
 name = "Am" & "ee" & "r";
 x = (if n > 2 then 1 else 4)+4;
@@ -28,8 +30,8 @@ println (access {obj with s: "h", m: 3});
 access {x: {y: (4, 7, "XYZ"), text: "No!"}} + 4;
 area shape = 
     match shape with
-    | Square {n: n} -> n*n
+    | sq` {n: n} -> n*n
     | Circle cir -> 3.14 .* cir.r .* cir.r
     end;
-println (area (Square {obj with n: n}));
+println (area (sq` {obj with n: n}));
 let double n = n*2 in println (obj:getX (double ((funcs->apply (funcs->flip arith->div 4) arith->arrow))))

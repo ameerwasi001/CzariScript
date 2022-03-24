@@ -4,7 +4,7 @@ import { TypeckState } from "./typeCheck.ts"
 import { programGraphAnalysis } from "./ast.ts"
 import { topLevelsToJs } from "./js.ts"
 import { BUILT_IN_NAMES, intorduceBuiltIns, removeBuiltIns } from "./builtIns.ts"
-import { modifyIdentifiersTopLevel, TopLevel } from "./ast.ts"
+import { modifyIdentifiersTopLevel, pathConstructorsTopLevel, TopLevel } from "./ast.ts"
 import { RefGraph } from "./graph.ts"
 import { SpanManager, SpannedError } from "./spans.ts"
 
@@ -39,9 +39,10 @@ async function gatherASTs(
         arr.push(fName)
         const lexer = new Lexer(source, spanManager, arr.length-1)
         const toks = lexer.lex()
-        const [imports, exprs] = new Parser(toks).parseTopLevel()
+        const [imports, exprs, aliases] = new Parser(toks).parseTopLevel()
         const woExtension = rsplit(arr[arr.length-1], ".").slice(0, -1).join(".")
-        asts[fName] = [spanManager, modifyIdentifiersTopLevel(exprs, woExtension, BUILT_IN_NAMES)]
+        const exprs$ = pathConstructorsTopLevel(exprs, aliases, BUILT_IN_NAMES)
+        asts[fName] = [spanManager, modifyIdentifiersTopLevel(exprs$, woExtension, BUILT_IN_NAMES)]
         for(const [importName, span] of imports) {
             graph.makeEdge(fName, `${importName}.bscr`)
             const existsFile = await exists(`${importName}.bscr`)

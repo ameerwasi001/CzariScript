@@ -4,6 +4,8 @@ import {
     Readability, TopLevel, exprToString
 } from "./ast.ts";
 
+import {BUILT_IN_NAMES} from "./builtIns.ts"
+
 function argPatternToJs(expr: LetPattern): string {
     if(expr.type == "Record") {
         const xs = expr.val
@@ -104,7 +106,7 @@ const topLevelToJs = (topLevel: TopLevel): string => {
 }
 
 const topLevelsToJs = (topLevels: TopLevel[]) => 
-    "import { println, ifThenElse, createPrototype, makeCase, matchCases, Eq__AnyCmp, Neq_AnyCmp } from \"./runtime.js\";\n\n" + 
+    `import { ${[...BUILT_IN_NAMES].join(", ")}, ifThenElse, createPrototype, makeCase, matchCases, Eq__AnyCmp, Neq_AnyCmp } from \"./runtime.js\";\n\n` + 
     topLevels.map(topLevelToJs).map(x => x + ";\n").join("")
 
 export { topLevelsToJs }
