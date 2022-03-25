@@ -123,8 +123,12 @@ function cloneExpr(expr: Expr): Expr {
     }
 }
 
+// Modifies identifier and turns it into {prefix}__{identifer}
 const  modifyIdentifiersMatchExpr =  (pat: MatchPattern, modNum: string) : MatchPattern => {
-    if (pat.type == "Case") return {type: "Case", val: [pat.val[0], `${modNum}__${pat.val[1]}`]}
+    if (pat.type == "Case") return {type: "Case", val: [
+        pat.val[0].includes("`") ? `${modNum}__${pat.val[0]}` : pat.val[0], 
+        `${modNum}__${pat.val[1]}`
+    ]}
     else return {type: "Wildcard", val: `${modNum}__${pat.val}`}
 }
 
@@ -159,8 +163,11 @@ function modifyIdentifiers(expr: Expr, modNum: string, builtIns: Set<string>): E
         const [expr1, expr2, span] = expr.fields
         return {type: "Call", fields: [modifyIdentifiers(expr1, modNum, builtIns), modifyIdentifiers(expr2, modNum, builtIns), span]}
     } else if (expr.type == "Case") {
-        const [spannedString, newExpr] = expr.fields
-        return {type: "Case", fields: [spannedString, modifyIdentifiers(newExpr, modNum, builtIns)]}
+        const [[name, span], newExpr] = expr.fields
+        let endName: string
+        if (name.includes("`")) endName = `${modNum}__${name}`
+        else endName = name
+        return {type: "Case", fields: [[endName, span], modifyIdentifiers(newExpr, modNum, builtIns)]}
     } else if (expr.type == "FieldAccess") {
         const [expr1, str, span] = expr.fields
         return {type: "FieldAccess", fields: [modifyIdentifiers(expr1, modNum, builtIns), str, span]}
@@ -198,7 +205,17 @@ function modifyIdentifiers(expr: Expr, modNum: string, builtIns: Set<string>): E
         return {type: "RefSet", fields: [modifyIndentifiersSpannedExpr(spannedExpr, modNum, builtIns), modifyIdentifiers(expr1, modNum, builtIns)]}
     } else {
         const [v, span] = expr.field
-        const str = builtIns.has(v) || (v.includes("__") && !(v.includes("___"))) ? v : `${modNum}__${v}`
+        const bool = (v.includes("__") && !(v.includes("___")))
+        let str = (bool || builtIns.has(v)) ? v : `${modNum}__${v}`
+        if(bool) {
+            const strs = str.split("__")
+            let i = 0
+            while(i < strs.length) {
+                if(strs[i].includes("`")) strs[i] = `${modNum}__${strs[i]}`
+                i += 1
+            }
+            str = strs.join("__")
+        }
         return {type: "Variable", field: [str, span]}
     }
 }
@@ -369,8 +386,26 @@ function pathConstructors(expr: Expr, modNum: Record<string, [string, Span]>, bu
         const [spannedExpr, expr1] = expr.fields
         return {type: "RefSet", fields: [pathConstructorsSpannedExpr(spannedExpr, modNum, builtIns), pathConstructors(expr1, modNum, builtIns)]}
     } else {
-        const [v, span] = expr.field
-        return {type: "Variable", field: [v, span]}
+        const [ident, span] = expr.field
+        const strs = ident.split("__")
+        const newStrs: string[] = []
+        let i = 0
+        while(i < strs.length) {
+            const str = strs[i]
+            if(str.startsWith("_")) {
+                newStrs.push(str)
+                i += 1
+                continue
+            }
+            if(str.includes("`") && (strs[i-1] === undefined || strs[i-1] === "")) newStrs.push(aliasCase(str, modNum, span))
+            else if(str.includes("`")) {
+                const lastStr = newStrs.pop()
+                newStrs.push(aliasCase(`${lastStr}__${str}`, modNum, span))
+            } else newStrs.push(str)
+            i += 1
+        }
+        const str = newStrs.join("__")
+        return {type: "Variable", field: [str, span]}
     }
 }
 

@@ -464,8 +464,8 @@ class Parser {
             () => {
                 this.advance()
                 const tok = this.currentTok
-                if(tok.type != "Variable") throw SpannedError.new1(
-                    `Expected a variable, got ${this.currentTok.type}`,
+                if(tok.type != "Constructor") throw SpannedError.new1(
+                    `Expected a constructor, got ${this.currentTok.type}`,
                     this.currentTok.span
                 )
                 imports.push([tok.value, this.currentTok.span])
@@ -513,7 +513,7 @@ class Parser {
                     (): [string, Expr] => {
                         const tok = this.currentTok
                         if(tok.type != "Variable") throw SpannedError.new1(
-                            ``,
+                            `Expected a variable, got ${tok.type}`,
                             tok.span
                         )
                         this.advance()
@@ -823,29 +823,27 @@ class Parser {
         }
         else if(tok.type == "Constructor" || (tok.type == "Variable" && tok.value.includes("`"))) {
             this.advance()
-            const [expr, _] = this.expr()
-            return [{type: "Case", fields: [[tok.value, tok.span], expr]}, tok.span]
-        } else if (tok.type == "Variable") {
-            this.advance()
             const tok_ = this.currentTok
-            if(tok_.type != "Arrow") val = [
-                {type: "Variable", field: [tok.value, tok.span]}, 
-                tok.span
-            ] 
-            else {
-                const moduleName = tok.value
+            if(tok_.type != "Arrow") {
+                const [expr, _] = this.expr()
+                val = [{type: "Case", fields: [[tok.value, tok.span], expr]}, tok.span]
+            } else {
                 this.advance()
+                const moduleName = tok.value
                 if(this.currentTok.type != "Variable") throw SpannedError.new1(
                     `Expected a variable, got ${this.currentTok.type}`,
                     this.currentTok.span
                 )
                 const attr = this.currentTok.value
                 this.advance()
-                val = [
-                    {type: "Variable", field: [`${moduleName}__exported__${attr}`, tok.span]}, 
-                    tok.span
-                ]
+                val = [{type: "Variable", field: [`${moduleName}__exported__${attr}`, tok.span]}, tok.span]
             }
+        } else if (tok.type == "Variable") {
+            this.advance()
+            val = [
+                {type: "Variable", field: [tok.value, tok.span]}, 
+                tok.span
+            ]
         } else if(tok.type == "At") {
             this.advance()
             const [expr, span] = this.factor()
