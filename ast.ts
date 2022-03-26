@@ -205,7 +205,7 @@ function modifyIdentifiers(expr: Expr, modNum: string, builtIns: Set<string>): E
         return {type: "RefSet", fields: [modifyIndentifiersSpannedExpr(spannedExpr, modNum, builtIns), modifyIdentifiers(expr1, modNum, builtIns)]}
     } else {
         const [v, span] = expr.field
-        const bool = (v.includes("__") && !(v.includes("___")))
+        const bool = v.includes("__") && !(v.includes("___"))
         let str = (bool || builtIns.has(v)) ? v : `${modNum}__${v}`
         if(bool) {
             const strs = str.split("__")
@@ -265,7 +265,7 @@ function exprToString(expr: Expr): string {
         return exprToString(expr1) + "." + str
     } else if (expr.type == "FuncDef") {
         const [[argPattern, bodyExpr], span] = expr.fields
-        return `\\${letPatternToString(argPattern)}` + exprToString(bodyExpr)
+        return `\\${letPatternToString(argPattern)} -> ` + exprToString(bodyExpr)
     } else if (expr.type == "If") {
         const [[expr1, _], expr2, expr3] = expr.fields
         return `if ${expr1} then ${expr2} else ${expr3}`

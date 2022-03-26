@@ -528,7 +528,12 @@ class Parser {
         }
         const aliasMap: Record<string, [string, Span]> = {}
         for(const [[k, v], span] of aliases) aliasMap[k] = [v, span]
-        return [imports, finals, aliasMap]
+        if (definitions.val.length === 0) return [
+            imports, 
+            evals.map((x: Expr): TopLevel => { return {type: "Expr", val: x} }), 
+            aliasMap
+        ]
+        else return [imports, finals, aliasMap]
     }
 
     parseLetPattern(): Spanned<LetPattern> {
@@ -848,6 +853,34 @@ class Parser {
             this.advance()
             const [expr, span] = this.factor()
             val = [{type: "NewRef", fields: [expr, span]}, span]
+        } else if(tok.type == "Dot") {
+            const accesses: [string, Span][] = []
+            let tok = this.currentTok
+            while(tok.type == "Dot") {
+                this.advance()
+                if(this.currentTok.type != "Variable") throw SpannedError.new1(
+                    `Expected a variable, got ${this.currentTok.type}`,
+                    this.currentTok.span
+                )
+                accesses.push([this.currentTok.value, this.currentTok.span])
+                this.advance()
+                tok = this.currentTok
+            }
+            const atom: Spanned<Expr> = [{type: "Variable", field: ["x", this.currentTok.span]}, this.currentTok.span]
+            const list = makeExprList<Expr>(
+                accesses, 
+                atom, 
+                (id: string, expr: Expr, span: Span): Expr => {
+                    return {type: "FieldAccess", fields: [expr, id, span]} 
+                }
+            )[0]
+            const lambda: Expr = {
+                    type: "FuncDef", fields: [
+                        [{type: "Var", val: "x"}, list], 
+                        this.currentTok.span
+                    ]
+                }
+            return [lambda, this.currentTok.span]
         }
         else if(tok.type == "OpenBrace") return this.parseRecord("OpenBrace", "CloseBrace")
         else if(this.currentTok.type == "Keyword" && this.currentTok.value == "let") val = this.parseLet()
