@@ -305,31 +305,37 @@ function exprToString(expr: Expr): string {
 }
 
 // Patch constructors
-const aliasCase = (str: string, modNum: Record<string, [string, Span]>, span: Span): string => {
+type Alias = "Module" | "Constructor"
+
+const aliasCase = (str: string, t: Alias, modNum: Record<string, [string, [Alias, Span]]>, span: Span): string => {
     const hasTilde = str.includes("`")
     if(hasTilde && !(modNum.hasOwnProperty(str))) throw SpannedError.new1(
         `Could not find a defintion for ${str}`,
         span
     )
+    if(hasTilde && modNum[str][1][0] !== t) throw SpannedError.new1(
+        `Expected a ${modNum[str][0]}, got ${t} which `,
+        span
+    )
     return hasTilde ? modNum[str][0] : str
 }
 
-const pathConstructorsMatchExpr =  (pat: MatchPattern, modNum: Record<string, [string, Span]>, span: Span) : MatchPattern => {
-    if (pat.type == "Case") return {type: "Case", val: [aliasCase(pat.val[0], modNum, span), pat.val[1]]}
+const pathConstructorsMatchExpr =  (pat: MatchPattern, modNum: Record<string, [string, [Alias, Span]]>, span: Span) : MatchPattern => {
+    if (pat.type == "Case") return {type: "Case", val: [aliasCase(pat.val[0], "Constructor",  modNum, span), pat.val[1]]}
     else return {type: "Wildcard", val: pat.val}
 }
 
-function pathConstructorsSpannedExpr(spannedExpr: Spanned<Expr>, modNum: Record<string, [string, Span]>, builtIns: Set<string>): [Expr, Span] {
+function pathConstructorsSpannedExpr(spannedExpr: Spanned<Expr>, modNum: Record<string, [string, [Alias, Span]]>, builtIns: Set<string>): [Expr, Span] {
     const [expr, span] = spannedExpr
     return [pathConstructors(expr, modNum, builtIns), span]
 }
 
-const pathConstructorsVarDefinition = (def: VarDefinition, modNum: Record<string, [string, Span]>, builtIns: Set<string>): VarDefinition => {
+const pathConstructorsVarDefinition = (def: VarDefinition, modNum: Record<string, [string, [Alias, Span]]>, builtIns: Set<string>): VarDefinition => {
     const [str, expr] = def
     return [str, pathConstructors(expr, modNum, builtIns)]
 }
 
-function pathConstructorsLetPattern(letPattern: LetPattern, modNum: Record<string, [string, Span]>, builtIns: Set<string>): LetPattern {
+function pathConstructorsLetPattern(letPattern: LetPattern, modNum: Record<string, [string, [Alias, Span]]>, builtIns: Set<string>): LetPattern {
     if (letPattern.type == "Var") return {type: "Var", val: letPattern.val}
     else return {
         type: "Record", 
@@ -340,7 +346,7 @@ function pathConstructorsLetPattern(letPattern: LetPattern, modNum: Record<strin
     }
 }
 
-function pathConstructors(expr: Expr, modNum: Record<string, [string, Span]>, builtIns: Set<string>): Expr {
+function pathConstructors(expr: Expr, modNum: Record<string, [string, [Alias, Span]]>, builtIns: Set<string>): Expr {
     if (expr.type == "BinOp") {
         const [spannedExpr1, spannedExpr2, opType, op, span] = expr.fields
         return {type: "BinOp", fields: [pathConstructorsSpannedExpr(spannedExpr1, modNum, builtIns), pathConstructorsSpannedExpr(spannedExpr2, modNum, builtIns), opType, op, span]}
@@ -349,7 +355,7 @@ function pathConstructors(expr: Expr, modNum: Record<string, [string, Span]>, bu
         return {type: "Call", fields: [pathConstructors(expr1, modNum, builtIns), pathConstructors(expr2, modNum, builtIns), span]}
     } else if (expr.type == "Case") {
         const [[string, span], newExpr] = expr.fields
-        return {type: "Case", fields: [[aliasCase(string, modNum, span), span], pathConstructors(newExpr, modNum, builtIns)]}
+        return {type: "Case", fields: [[aliasCase(string, "Constructor", modNum, span), span], pathConstructors(newExpr, modNum, builtIns)]}
     } else if (expr.type == "FieldAccess") {
         const [expr1, str, span] = expr.fields
         return {type: "FieldAccess", fields: [pathConstructors(expr1, modNum, builtIns), str, span]}
@@ -397,10 +403,10 @@ function pathConstructors(expr: Expr, modNum: Record<string, [string, Span]>, bu
                 i += 1
                 continue
             }
-            if(str.includes("`") && (strs[i-1] === undefined || strs[i-1] === "")) newStrs.push(aliasCase(str, modNum, span))
+            if(str.includes("`") && (strs[i-1] === undefined || strs[i-1] === "")) newStrs.push(aliasCase(str, "Module", modNum, span))
             else if(str.includes("`")) {
                 const lastStr = newStrs.pop()
-                newStrs.push(aliasCase(`${lastStr}__${str}`, modNum, span))
+                newStrs.push(aliasCase(`${lastStr}__${str}`, "Module", modNum, span))
             } else newStrs.push(str)
             i += 1
         }
@@ -409,7 +415,7 @@ function pathConstructors(expr: Expr, modNum: Record<string, [string, Span]>, bu
     }
 }
 
-const pathConstructorsTopLevel = (topLevels: TopLevel[], modNum: Record<string, [string, Span]>, builtIns: Set<string>): TopLevel[] => {
+const pathConstructorsTopLevel = (topLevels: TopLevel[], modNum: Record<string, [string, [Alias, Span]]>, builtIns: Set<string>): TopLevel[] => {
     const newTopLevels: TopLevel[] = []
     for(const topLevel of topLevels) {
         if(topLevel.type == "Expr") newTopLevels.push({type: "Expr", val: pathConstructors(topLevel.val, modNum, builtIns)})
@@ -550,7 +556,7 @@ function referenceGraph({expr, defs}: {expr: Expr, defs: Set<string>}, graph: Re
 export type { 
     Literal, Op, OpType, VarDefinition, 
     LetPattern, MatchPattern, Expr, 
-    Readability, TopLevel
+    Readability, TopLevel, Alias
 }
 export { 
     cloneExpr, modifyIdentifiersTopLevel, exprToString, pathConstructorsTopLevel,

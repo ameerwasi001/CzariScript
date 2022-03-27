@@ -1,6 +1,6 @@
 import Funcs;
 
-type fs` = Funcs;
+alias fs` = Funcs;
 
 arrow = 4;
 add a b = a+b;

@@ -2,7 +2,7 @@ import { Expr, VarDefinition } from "./ast.ts"
 import { Token, Op } from "./token.ts"
 import { Span, Spanned, SpannedError } from "./spans.ts"
 import { TopLevel } from "./ast.ts"
-import { exprToString, LetPattern, MatchPattern } from "./ast.ts"
+import { exprToString, Alias, LetPattern, MatchPattern } from "./ast.ts"
 import { intorduceBuiltIns } from "./builtIns.ts"
 
 const buildCall = (atoms: Spanned<Expr>[]) => {
@@ -333,17 +333,19 @@ class Parser {
     }
 
     parseImperative(ends: () => boolean, ender: () => void = () => this.advance()) {
-        const exprs: ({type: "Left", ident: string, val: Expr, span: Span}
+        const exprs: (
+            {type: "Left", ident: string, val: Expr, span: Span}
             |{type: "Right", val: Expr, span: Span}
-            | {type: "Up", ident: string, val: string, span: Span})[] = 
+            | {type: "Up", ident: string, val: string, span: Span}
+            | {type: "Down", ident: string, val: string, span: Span})[] = 
             this.parseSeperated(
                 "Newline", 
                 null, 
                 ends,
                 ender,
                 () => {
-                    const tok = this.currentTok
-                    if(tok.type == "Keyword" && tok.value == "type") {
+                    const origTok = this.currentTok
+                    if(origTok.type == "Keyword" && (origTok.value == "type" || origTok.value == "alias")) {
                         this.advance()
                         const tok = this.currentTok
                         if(tok.type != "Variable") throw SpannedError.new1(
@@ -373,9 +375,9 @@ class Parser {
                         const span = this.currentTok.span
                         const val = this.currentTok.value
                         this.advance()
-                        return {type: "Up", ident, val, span}
+                        return {type: origTok.value == "alias" ? "Down" : "Up", ident, val, span}
                     }
-                    if(tok.type == "Variable") {
+                    if(origTok.type == "Variable") {
                         const patterns: [LetPattern, Span][] = []
                         const index = this.index
                         this.advance()
@@ -394,13 +396,13 @@ class Parser {
                             const expr = this.expr()
                             if(patterns.length > 0) return {
                                 type: "Left",
-                                ident: tok.value,
+                                ident: origTok.value,
                                 val: makeFunc(patterns, expr)[0],
                                 span: this.currentTok.span
                             }
                             else return {
                                 type: "Left",
-                                ident: tok.value,
+                                ident: origTok.value,
                                 val: expr[0],
                                 span: this.currentTok.span
                             }
@@ -420,7 +422,7 @@ class Parser {
         let counter = 0
         for(const expr of exprs) {
             if(expr.type == "Left") defs.push([expr.ident, expr.val, expr.span])
-            else if(expr.type == "Up") throw SpannedError.new1(
+            else if(expr.type == "Up" || expr.type == "Down") throw SpannedError.new1(
                 `Unexpected definition of a type ${expr.ident}`,
                 expr.span
             )
@@ -438,7 +440,7 @@ class Parser {
         const exprs = this.parseImperative(() => this.currentTok.type == "Keyword" && this.currentTok.value == "end")
         const defs: Spanned<VarDefinition>[] = []
         for(const expr of exprs) {
-            if(expr.type == "Right" || expr.type == "Up") throw SpannedError.new1(
+            if(expr.type == "Right" || expr.type == "Up" || expr.type == "Down") throw SpannedError.new1(
                 `Syntax Error: Unexpected expression or type alias, expected a definition`,
                 expr.span
             )
@@ -475,7 +477,7 @@ class Parser {
         return imports
     }
 
-    parseTopLevel(): [[string, Span][], TopLevel[], Record<string, [string, Span]>] {
+    parseTopLevel(): [[string, Span][], TopLevel[], Record<string, [string, [Alias, Span]]>] {
         const imports = this.parseImports()
         let tok = this.currentTok
         const exprs = this.parseImperative(
@@ -485,11 +487,13 @@ class Parser {
             }
         )
         const defs: [[string, Expr], Span][] = []
-        const aliases: [[string, string], Span][] = []
+        const aliases: [[string, string], [Alias, Span]][] = []
         const evals: Expr[] = []
         for(const expr of exprs) {
             if(expr.type == "Left") defs.push([[expr.ident, expr.val], expr.span])
-            else if(expr.type == "Up") aliases.push([[expr.ident, expr.val], expr.span])
+            else if(expr.type == "Up" || expr.type == "Down") {
+                aliases.push([[expr.ident, expr.val], [expr.type == "Down" ? "Module" : "Constructor", expr.span]])
+            }
             else evals.push(expr.val)
         }
         const expressions: TopLevel[] = evals.map(val => { return {type: "Expr", val} })
@@ -526,8 +530,8 @@ class Parser {
                 ...fields.map(([str, val]): TopLevel => { return {type: "LetDef", val: [str, val]}})
             )
         }
-        const aliasMap: Record<string, [string, Span]> = {}
-        for(const [[k, v], span] of aliases) aliasMap[k] = [v, span]
+        const aliasMap: Record<string, [string, [Alias, Span]]> = {}
+        for(const [[k, v], [alias, span]] of aliases) aliasMap[k] = [v, [alias, span]]
         if (definitions.val.length === 0) return [
             imports, 
             evals.map((x: Expr): TopLevel => { return {type: "Expr", val: x} }), 

@@ -64,6 +64,7 @@ type Keyword =
     | "class"
     | "import"
     | "type"
+    | "alias"
     | "export"
     | "end"
 
@@ -71,7 +72,7 @@ const keywords = new Set([
     "if", "then", "else", "let", 
     "in", "with", "do", "match", 
     "where", "so", "class", "import", 
-    "type", "export", "end"
+    "type", "alias", "export", "end"
 ])
 
 export type { Keyword, Token, Literal, Op, OpType }
