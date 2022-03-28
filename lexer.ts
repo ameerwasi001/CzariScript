@@ -327,7 +327,7 @@ class Lexer {
         ],
         [
             "Ident",
-            (self: Lexer) => LOWER_ALPHAS.has(self.currentChar), 
+            (self: Lexer) => LOWER_ALPHAS.has(self.currentChar) || self.currentChar == "_", 
             (self: Lexer) => {
                 const starter = this.index
                 let str = ""

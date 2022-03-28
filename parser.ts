@@ -245,9 +245,11 @@ class Parser {
         )
         this.advance()
         const lvls = this.parseImperative(() => this.currentTok.type == "Keyword" && this.currentTok.value == "end")
+        const declStatics: [[string, Span], Expr][] = []
         const defs: [[string, Span], Expr][] = []
         for(const lvl of lvls) {
             if(lvl.type == "Left") defs.push([[lvl.ident, lvl.span], lvl.val])
+            else if(lvl.type == "UpRight") declStatics.push([[lvl.ident, lvl.span], lvl.val])
             else throw SpannedError.new1(
                 `Unexpected expression, expected definition`,
                 lvl.span
@@ -268,7 +270,10 @@ class Parser {
             {type: "Record", fields: [callNewExpr, defs, this.currentTok.span]},
             this.currentTok.span
         ]
-        const statics: [[string, Span], Expr][] = [[["new", this.currentTok.span], makeFunc(patterns, objRecord)[0]]]
+        const statics: [[string, Span], Expr][] = [
+            [["new", this.currentTok.span], makeFunc(patterns, objRecord)[0]],
+            ...declStatics
+        ]
         const classRecordExpr: Spanned<Expr> = [
             {type: "Record", fields: [inheritanceExpr, statics, this.currentTok.span]}, 
             this.currentTok.span
@@ -337,7 +342,8 @@ class Parser {
             {type: "Left", ident: string, val: Expr, span: Span}
             |{type: "Right", val: Expr, span: Span}
             | {type: "Up", ident: string, val: string, span: Span}
-            | {type: "Down", ident: string, val: string, span: Span})[] = 
+            | {type: "Down", ident: string, val: string, span: Span}
+            | {type: "UpRight", ident: string, val: Expr, span: Span})[] = 
             this.parseSeperated(
                 "Newline", 
                 null, 
@@ -377,9 +383,21 @@ class Parser {
                         this.advance()
                         return {type: origTok.value == "alias" ? "Down" : "Up", ident, val, span}
                     }
-                    if(origTok.type == "Variable") {
+                    if(origTok.type == "Variable" || (origTok.type == "Keyword" && origTok.value == "static")) {
+                        let staticIdent: string | null = null
+                        if(origTok.type == "Keyword" && origTok.value == "static") {
+                            staticIdent = ""
+                            this.advance()
+                        }
                         const patterns: [LetPattern, Span][] = []
                         const index = this.index
+                        if(typeof staticIdent == "string") {
+                            if(this.currentTok.type !== "Variable") throw SpannedError.new1(
+                                `Expected a variable, got ${this.currentTok.type}`,
+                                this.currentTok.span
+                            )
+                            staticIdent = this.currentTok.value
+                        }
                         this.advance()
                         while(this.beginsPattern(null)) {
                             try {
@@ -391,18 +409,19 @@ class Parser {
                                 break
                             }
                         }
+                        let isStatic = staticIdent !== null
                         if(this.currentTok.type == "Op" && this.currentTok.op == "Eq") {
                             this.advance()
                             const expr = this.expr()
                             if(patterns.length > 0) return {
-                                type: "Left",
-                                ident: origTok.value,
+                                type: staticIdent !== null ? "UpRight" : "Left",
+                                ident: staticIdent !== null ? staticIdent : origTok.value,
                                 val: makeFunc(patterns, expr)[0],
                                 span: this.currentTok.span
                             }
                             else return {
-                                type: "Left",
-                                ident: origTok.value,
+                                type: staticIdent !== null ? "UpRight" : "Left",
+                                ident: staticIdent !== null ? staticIdent : origTok.value,
                                 val: expr[0],
                                 span: this.currentTok.span
                             }
@@ -422,7 +441,7 @@ class Parser {
         let counter = 0
         for(const expr of exprs) {
             if(expr.type == "Left") defs.push([expr.ident, expr.val, expr.span])
-            else if(expr.type == "Up" || expr.type == "Down") throw SpannedError.new1(
+            else if(expr.type == "Up" || expr.type == "Down" || expr.type == "UpRight") throw SpannedError.new1(
                 `Unexpected definition of a type ${expr.ident}`,
                 expr.span
             )
@@ -493,7 +512,10 @@ class Parser {
             if(expr.type == "Left") defs.push([[expr.ident, expr.val], expr.span])
             else if(expr.type == "Up" || expr.type == "Down") {
                 aliases.push([[expr.ident, expr.val], [expr.type == "Down" ? "Module" : "Constructor", expr.span]])
-            }
+            } else if(expr.type == "UpRight") SpannedError.new1(
+                `Unexpected static defintions on the Top Level`,
+                this.currentTok.span
+            )
             else evals.push(expr.val)
         }
         const expressions: TopLevel[] = evals.map(val => { return {type: "Expr", val} })
