@@ -409,7 +409,6 @@ class Parser {
                                 break
                             }
                         }
-                        let isStatic = staticIdent !== null
                         if(this.currentTok.type == "Op" && this.currentTok.op == "Eq") {
                             this.advance()
                             const expr = this.expr()
