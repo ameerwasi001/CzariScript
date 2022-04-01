@@ -1,5 +1,5 @@
 # CzariScript
-The CzariScript is a type system that supports subtype inference with parametric polymorphism, classes, objects, and single inheritance.
+The CzariScript has a type system that supports subtype inference with parametric polymorphism, classes, objects, and single inheritance. It compiles to JavaScript and the output runs in the browser, and deno.
 
 ## Structure of CzariScript
 A CzariScript program contains a sequence of definitions, and expressions separated by semicolons. The definitions are all evaluated before expressions. Here's an example of a CzariScript program.
