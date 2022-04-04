@@ -1,4 +1,4 @@
-import Arith;
+import {mult, div} from Arith;
 import Funcs;
 
 type sq` = Square;
@@ -32,8 +32,8 @@ println (access {obj with s: "h", m: 3});
 access {x: {y: (4, 7, "XYZ"), text: "No!"}} + 4;
 area shape = 
     match shape with
-    | sq` {n: n} -> n*n
+    | sq` {n: n} -> Arith->mult n n
     | Circle cir -> 3.14 .* cir.r .* cir.r
     end;
 println (area (sq` {obj with n: n}));
-let double n = n*2 in println (obj:getX (double ((Funcs->apply (Funcs->flip Arith->div 4) Arith->arrow))))
+let double n = mult n 2 in println (obj:getX (double ((Funcs->apply (Funcs->flip div 4) Arith->arrow))))

@@ -467,8 +467,8 @@ class Parser {
         return [{type: "LetRec", fields: [defs, expr]}, span]
     }
 
-    parseImports() {
-        let imports: [string, Span][] = []
+    parseImports(): [[string, Span], [string, Expr][]][] {
+        let imports: [[string, Span], [string, Expr][]][] = []
         this.parseSeperated(
             "Newline", 
             null, 
@@ -484,11 +484,46 @@ class Parser {
             () => {
                 this.advance()
                 const tok = this.currentTok
-                if(tok.type != "Constructor") throw SpannedError.new1(
-                    `Expected a constructor, got ${this.currentTok.type}`,
-                    this.currentTok.span
+                const fieldFuncs: ((_: string) => [string, Expr])[] = []
+                if(tok.type == "OpenBrace") {
+                    const fields_ = this.parseSeperated(
+                        "Comma", 
+                        "OpenBrace", 
+                        () => this.currentTok.type == "CloseBrace",
+                        () => this.advance(),
+                        (): ((x: string) => [string, Expr]) => {
+                            const tok_ = this.currentTok
+                            if(tok_.type != "Variable") throw SpannedError.new1(
+                                `Expected a variable, got ${tok_.type}`,
+                                tok_.span
+                            )
+                            this.advance()
+                            return (x: string) => {
+                                return [
+                                    `${tok_.value}`, 
+                                    {type: "Variable", field: [`${x}__exported__${tok_.value}`, tok_.span]}
+                                ]
+                            }
+                        }
+                    )
+                    if(this.currentTok.type != "Keyword") throw SpannedError.new1(
+                        `Expected 'from', got ${this.currentTok.type}`,
+                        this.currentTok.span
+                    )
+                    if(this.currentTok.value != "from") throw SpannedError.new1(
+                        `Expected 'from', got ${this.currentTok.value}`,
+                        this.currentTok.span
+                    )
+                    this.advance()
+                    fieldFuncs.push(...fields_)
+                }
+                const currTok = this.currentTok
+                if(currTok.type != "Constructor") throw SpannedError.new1(
+                    `Expected a constructor, got ${currTok.type}`,
+                    currTok.span
                 )
-                imports.push([tok.value, this.currentTok.span])
+                const fields = fieldFuncs.map(f => f(currTok.value))
+                imports.push([[currTok.value, currTok.span], fields])
                 this.advance()
             }
         )
@@ -507,6 +542,9 @@ class Parser {
         const defs: [[string, Expr], Span][] = []
         const aliases: [[string, string], [Alias, Span]][] = []
         const evals: Expr[] = []
+        for(const [[_, span], importDefs] of imports) {
+            for(const def of importDefs) defs.push([def, span])
+        }
         for(const expr of exprs) {
             if(expr.type == "Left") defs.push([[expr.ident, expr.val], expr.span])
             else if(expr.type == "Up" || expr.type == "Down") {
@@ -553,12 +591,13 @@ class Parser {
         }
         const aliasMap: Record<string, [string, [Alias, Span]]> = {}
         for(const [[k, v], [alias, span]] of aliases) aliasMap[k] = [v, [alias, span]]
+        const importsFiltered = imports.map(([a, _]: [[string, Span], [string, Expr][]]) => a)
         if (definitions.val.length === 0) return [
-            imports, 
+            importsFiltered, 
             evals.map((x: Expr): TopLevel => { return {type: "Expr", val: x} }), 
             aliasMap
         ]
-        else return [imports, finals, aliasMap]
+        else return [importsFiltered, finals, aliasMap]
     }
 
     parseLetPattern(): Spanned<LetPattern> {
