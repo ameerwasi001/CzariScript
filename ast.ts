@@ -493,31 +493,37 @@ const programGraphAnalysis = (topLevels: TopLevel[], unincludeables = new Set<st
     graph.ensureDefinitions()
 }
 
-function referenceGraph({expr, defs}: {expr: Expr, defs: Set<string>}, graph: RefGraph) {
+function referenceGraph({expr, defs}: {expr: Expr, defs: Set<string>}, graph: RefGraph): Expr {
     if (expr.type == "BinOp") {
         const [[expr1, _1], [expr2, _2], opType, op, span] = expr.fields
         referenceGraph({expr: expr1, defs}, graph)
         referenceGraph({expr: expr2, defs}, graph)
+        return expr
     } else if (expr.type == "Call") {
         const [expr1, expr2, _] = expr.fields
         referenceGraph({expr: expr1, defs}, graph)
         referenceGraph({expr: expr2, defs}, graph)
+        return expr
     } else if (expr.type == "Case") {
         const [[_1, _2], newExpr] = expr.fields
         referenceGraph({expr: newExpr, defs}, graph)
+        return expr
     } else if (expr.type == "FieldAccess") {
         const [expr1, _1, _2] = expr.fields
         referenceGraph({expr: expr1, defs}, graph)
+        return expr
     } else if (expr.type == "FuncDef") {} 
     else if (expr.type == "If") {
         const [[expr1, _], expr2, expr3] = expr.fields
         referenceGraph({expr: expr1, defs}, graph)
         referenceGraph({expr: expr2, defs}, graph)
         referenceGraph({expr: expr3, defs}, graph)
+        return expr
     } else if (expr.type == "Let") {
         const [[id, valExpr], expr1] = expr.fields
         graph.withNoneOf(new Set([id]), {expr: valExpr, defs}, referenceGraph)
         graph.withNoneOf(new Set([id]), {expr: expr1, defs}, referenceGraph)
+        return expr
     } else if (expr.type == "LetRec") {
         const [varDefinitions, expr1] = expr.fields
         const _defs = new Set<string>()
@@ -526,31 +532,39 @@ function referenceGraph({expr, defs}: {expr: Expr, defs: Set<string>}, graph: Re
         programGraphAnalysis(topLevels, defs)
         for(const [[_1, expr], _2] of varDefinitions) graph.withNoneOf(defs, {expr, defs}, referenceGraph)
         graph.withNoneOf(defs, {expr: expr1, defs}, referenceGraph)
-    } else if (expr.type == "Literal") {} 
+        return expr
+    } else if (expr.type == "Literal") return expr
     else if (expr.type == "Match") {
         const [expr1, xs, _1] = expr.fields
         referenceGraph({expr: expr1, defs}, graph)
         for (const [[pat, _1], expr] of xs) {
             const defs = matchPatternReferenceGraph(pat)
-            graph.withNoneOf(defs, {expr: expr1, defs}, referenceGraph)
+            graph.withNoneOf(defs, {expr: expr, defs}, referenceGraph)
         }
+        return expr
     } else if (expr.type == "NewRef") {
         const [expr1, _] = expr.fields
         referenceGraph({expr: expr1, defs}, graph)
+        return expr
     } else if (expr.type == "Record") {
         const [maybeExpr, xs, _] = expr.fields
         for(const [[_1, _2], expr] of xs) referenceGraph({expr, defs}, graph)
         maybeExpr == null ? "" : referenceGraph({expr: maybeExpr, defs}, graph)
+        return expr
     } else if (expr.type == "RefGet") {
         const [expr1, _] = expr.field
         referenceGraph({expr: expr1, defs}, graph)
+        return expr
     } else if (expr.type == "RefSet") {
         const [[expr1, _], expr2] = expr.fields
         referenceGraph({expr: expr1, defs}, graph)
         referenceGraph({expr: expr2, defs}, graph)
+        return expr
     } else {
         graph.addEdge(...expr.field)
+        return expr
     }
+    return expr
 }
 
 export type { 
