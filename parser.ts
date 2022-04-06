@@ -548,7 +548,7 @@ class Parser {
         for(const expr of exprs) {
             if(expr.type == "Left") defs.push([[expr.ident, expr.val], expr.span])
             else if(expr.type == "Up" || expr.type == "Down") {
-                aliases.push([[expr.ident, expr.val], [expr.type == "Down" ? "Module" : "Constructor", expr.span]])
+                aliases.push([[expr.ident, expr.val], [expr.type == "Down" ? "Unknown" : "Constructor", expr.span]])
             } else if(expr.type == "UpRight") SpannedError.new1(
                 `Unexpected static defintions on the Top Level`,
                 this.currentTok.span

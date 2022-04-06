@@ -305,7 +305,10 @@ function exprToString(expr: Expr): string {
 }
 
 // Patch constructors
-type Alias = "Module" | "Constructor"
+type Alias = 
+    "Module" 
+    | "Constructor"
+    | "Unknown"
 
 const aliasCase = (str: string, t: Alias, modNum: Record<string, [string, [Alias, Span]]>, span: Span): string => {
     const hasTilde = str.includes("`")
@@ -313,8 +316,9 @@ const aliasCase = (str: string, t: Alias, modNum: Record<string, [string, [Alias
         `Could not find a defintion for ${str}`,
         span
     )
+    if(hasTilde && modNum[str][1][0] === "Unknown") modNum[str][1][0] = t
     if(hasTilde && modNum[str][1][0] !== t) throw SpannedError.new1(
-        `Expected a ${modNum[str][0]}, got ${t} which `,
+        `Expected a ${modNum[str][1][0]}, got ${t} which `,
         span
     )
     return hasTilde ? modNum[str][0] : str
