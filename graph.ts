@@ -34,7 +34,8 @@ class RefGraph {
         else this.dict[this.def] = new Set([v])
     }
 
-    makeEdge(k: string, v: string) {
+    makeEdge(k: string, v: string, span: Span) {
+        this.spans[v] = span
         if(this.dict.hasOwnProperty(k)) this.dict[k].add(v)
         else this.dict[k] = new Set([v])
     }

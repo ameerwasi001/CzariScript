@@ -37,13 +37,16 @@ const objectMap = <A, B>(obj: Record<string, A>, f: (_1:string, _2: A) => [strin
     return newObj
 }
 
-async function gatherASTs(
+async function gatherASTsGo(
         fName: string, 
         spanManager: SpanManager, 
         asts: Record<string, [SpanManager, TopLevel[]]>,
+        visited: Set<string>,
         arr: string[],
         graph: RefGraph,
     ) {
+        if(visited.has(fName)) return
+        visited.add(fName)
         const source = await readFile(fName)
         arr.push(fName)
         const lexer = new Lexer(source, spanManager, arr.length-1)
@@ -58,14 +61,25 @@ async function gatherASTs(
         )
         asts[fName] = [spanManager, pathConstructorsTopLevel(exprs$$, aliases, BUILT_IN_NAMES)]
         for(const [importName, span] of imports) {
-            graph.makeEdge(fName, `${importName}.bscr`)
+            graph.makeEdge(fName, `${importName}.bscr`, span)
             const existsFile = await exists(`${importName}.bscr`)
             if(!existsFile) throw SpannedError.new1(
                 `'${importName}.bscr' is not found`,
                 span
             )
-            await gatherASTs(`${importName}.bscr`, spanManager, asts, arr, graph)
+            await gatherASTsGo(`${importName}.bscr`, spanManager, asts, visited, arr, graph)
         }
+}
+
+const gatherASTs = async (
+    fName: string, 
+    asts: Record<string, [SpanManager, TopLevel[]]>,
+    spanManager: SpanManager,
+) => {
+    const graph = new RefGraph()
+    await gatherASTsGo(fName, spanManager, asts, new Set<string>(), [], graph)
+    graph.ensureAcyclic()
+    return graph
 }
 
 export {

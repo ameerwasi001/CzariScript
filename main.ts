@@ -13,8 +13,7 @@ const compile = async (fName: string) => {
     const spanManager = new SpanManager()
     try {
         const exprs__: Record<string, [SpanManager, TopLevel[]]> = {}
-        const graph = new RefGraph()
-        await gatherASTs(fName, spanManager, exprs__, [], graph)
+        const graph = await gatherASTs(fName, exprs__, spanManager)
         const exprs_: TopLevel[] = Object.keys(exprs__).length == 1 ? 
             exprs__[Object.keys(exprs__)[0]][1] :
             [...graph.topologicalSort()].map(s => exprs__[s][1]).flat()
